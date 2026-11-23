@@ -138,6 +138,22 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task RemoveCompanyUsersAsync(IReadOnlyList<string> userIds, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/companies/users/remove", userIds, ct);
 
+    // ── 사용처 처리 담당자 ──────────────────────────────────────
+
+    /// <summary>한 회사의 사용처 담당자. 사용처를 주면 그것만 준다.</summary>
+    public Task<IReadOnlyList<CompanyUsageManagerDto>> GetUsageManagersAsync(
+        string companyId, string? codeValue = null, CancellationToken ct = default)
+        => gateway.GetListAsync<CompanyUsageManagerDto>(
+            "auth/system/company-usage-managers" + Query(("companyId", companyId), ("codeValue", codeValue)), ct);
+
+    /// <summary>담당자를 넣는다. 이미 든 사람은 서버가 건너뛴다.</summary>
+    public Task AddUsageManagersAsync(
+        string companyId, string codeValue, IReadOnlyList<string> accountIds, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/company-usage-managers", new { companyId, codeValue, accountIds }, ct);
+
+    public Task RemoveUsageManagersAsync(IReadOnlyList<int> ids, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/company-usage-managers/remove", ids, ct);
+
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(CancellationToken ct = default)
         => GetDeptsAsync(null, ct);
 

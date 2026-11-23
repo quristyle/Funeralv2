@@ -2069,3 +2069,20 @@ public sealed class ServerPingDeviceStatusDto
     public ServerPingTargetDto Target { get; set; } = new();
     public ServerPingResultDto PingResult { get; set; } = new();
 }
+
+/// <summary>회사 사용처의 처리 담당자 한 줄 (AuthServer <c>/system/company-usage-managers</c>).</summary>
+public sealed class CompanyUsageManagerDto
+{
+    public int Id { get; set; }
+    public string CompanyId { get; set; } = string.Empty;
+    public string CodeValue { get; set; } = string.Empty;
+    public string AccountId { get; set; } = string.Empty;
+    public string LoginId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+
+    /// <summary>담당자 본인의 소속 회사. 맡은 회사와 다를 수 있다.</summary>
+    public string? CompanyName { get; set; }
+    public string? DeptName { get; set; }
+    public string? Email { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

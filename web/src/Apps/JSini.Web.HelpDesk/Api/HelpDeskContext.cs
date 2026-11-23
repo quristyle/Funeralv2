@@ -1,10 +1,33 @@
+using JSini.Web.Http;
+
 namespace JSini.Web.HelpDesk.Api;
 
 /// <summary>헬프데스크 공용 상태 — 로그인 계정의 헬프데스크 신원과 셀렉트용 조직 목록을 한 번 받아 캐싱한다. 회로(사용자)마다 하나라 수명이 회로와 같다.</summary>
-public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions)
+public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions, GatewayClient gateway)
 {
     private Task? _identityLoading;
     private Task? _orgLoading;
+    private Task<IReadOnlyList<string>>? _managedLoading;
+
+    /// <summary>포털관리 「사용처 담당자」에서 이 사용처의 처리 담당자로 걸린 사람만 그 회사를 받는다.</summary>
+    private const string HelpDeskUsage = "HELP_DESK";
+
+    /// <summary>로그인한 사람이 헬프데스크 처리 담당자로 걸린 회사들(scom.companies.id). 못 읽으면 빈 목록 — 미리 고르기만 못 할 뿐 화면은 그대로 쓴다.</summary>
+    public Task<IReadOnlyList<string>> LoadManagedCompanyIdsAsync() =>
+        _managedLoading ??= LoadManagedCompanyIdsCoreAsync();
+
+    private async Task<IReadOnlyList<string>> LoadManagedCompanyIdsCoreAsync()
+    {
+        try
+        {
+            return await gateway.GetListAsync<string>(
+                $"auth/system/company-usage-managers/mine?codeValue={HelpDeskUsage}");
+        }
+        catch
+        {
+            return [];
+        }
+    }
 
     /// <summary>현재 계정이 해석된 신원. 연결이 없으면 null.</summary>
     public HelpdeskIdentity? Identity { get; private set; }

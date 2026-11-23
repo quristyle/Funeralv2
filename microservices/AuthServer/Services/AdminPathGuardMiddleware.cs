@@ -28,7 +28,7 @@ public sealed class AdminPathGuardMiddleware(RequestDelegate next, ILogger<Admin
     private static readonly string[] AdminWrite =
     [
         "/system/account", "/system/role", "/system/role-permission", "/system/role-scope",
-        "/system/signup", "/system/companies", "/system/dept", "/system/menu", "/system/i18n",
+        "/system/signup", "/system/companies", "/system/company-usage-managers", "/system/dept", "/system/menu", "/system/i18n",
         "/system/biz-select", "/system/common-code", "/menu/move", "/notices",
     ];
 

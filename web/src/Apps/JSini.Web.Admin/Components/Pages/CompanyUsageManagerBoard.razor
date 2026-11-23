@@ -1,0 +1,133 @@
+@page "/admin/company/usage-manager"
+@attribute [RouteKey("admin.company.usage-manager")]
+
+@*
+    [사용처 담당자] 회사 → 그 회사의 사용처 → 사용처의 처리 담당자, 세 단이다.
+    사용처는 회사 관리에서 건 것(COMPANY_USAGE_LOCATION)만 선다. 담당자는 회사와 무관하게 아무 계정이나 넣는다 — 우리 직원이 고객사를 맡는다.
+    헬프데스크 「요청 처리」가 로그인한 사람이 HELP_DESK 담당인 회사를 미리 고르는 데 쓴다.
+*@
+
+@inherits DataPage
+
+<PageTitle>사용처 담당자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="회사">
+            <DxTextBox @bind-Text="_keyword" Style="width: 220px"
+                       BindValueMode="BindValueMode.OnInput" InputDelay="200"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<DxSplitter CssClass="ad-vsplit ad-usage" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
+
+    @* ── 회사 ─────────────────────────────────────── *@
+    <DxSplitterPane Size="30%" MinSize="200px">
+    <section class="ad-vsplit__pane ad-vsplit__pane--left">
+        <h2 class="ad-subhead">회사 (@Companies.Count)</h2>
+
+        <div class="ad-targets">
+            @foreach (var company in Companies)
+            {
+                <button type="button"
+                        class="ad-target @(company.Id == _company?.Id ? "ad-target--on" : "")"
+                        @onclick="@(() => PickCompanyAsync(company))">
+                    <span class="ad-target__body">
+                        <span class="ad-target__name">@company.Name</span>
+                        <span class="ad-target__meta">사용처 @company.UsageLocations.Count</span>
+                    </span>
+                </button>
+            }
+
+            @if (Companies.Count == 0)
+            {
+                <p class="ad-stamp">찾은 회사가 없습니다.</p>
+            }
+        </div>
+    </section>
+    </DxSplitterPane>
+
+    @* ── 사용처 ───────────────────────────────────── *@
+    <DxSplitterPane Size="28%" MinSize="200px">
+    <section class="ad-vsplit__pane ad-vsplit__pane--left ad-usage__mid">
+        @if (_company is not null)
+        {
+            <h2 class="ad-subhead">사용처 (@Usages.Count)</h2>
+
+            <div class="ad-targets">
+                @foreach (var usage in Usages)
+                {
+                    <button type="button"
+                            class="ad-target @(usage.CodeValue == _usage ? "ad-target--on" : "")"
+                            @onclick="@(() => PickUsage(usage.CodeValue))">
+                        <span class="ad-target__body">
+                            <span class="ad-target__name">@usage.Name</span>
+                            <span class="ad-target__meta">@usage.CodeValue</span>
+                        </span>
+                        <span class="jsini-badge @(usage.Count > 0 ? "jsini-badge--on" : "jsini-badge--off")">담당 @usage.Count</span>
+                    </button>
+                }
+
+                @if (Usages.Count == 0)
+                {
+                    <p class="ad-stamp">걸린 사용처가 없습니다. 회사 관리에서 사용처를 거십시오.</p>
+                }
+            </div>
+        }
+    </section>
+    </DxSplitterPane>
+
+    @* ── 처리 담당자 ──────────────────────────────── *@
+    <DxSplitterPane>
+    <section class="ad-vsplit__pane ad-vsplit__pane--right ad-usage__right">
+        @if (_company is not null && _usage is not null)
+        {
+            <h2 class="ad-subhead">처리 담당자 (@Managers.Count)</h2>
+
+            <PermissionView Action="MenuAction.Create">
+                <div class="ad-usage__add">
+                    <DxTagBox Data="@Candidates"
+                              @bind-Values="_pickedAccounts"
+                              TextFieldName="@nameof(AccountDto.DisplayText)"
+                              ValueFieldName="@nameof(AccountDto.Id)"
+                              SearchMode="ListSearchMode.AutoSearch"
+                              SearchFilterCondition="ListSearchFilterCondition.Contains"
+                              NullText="넣을 사람을 고르십시오"
+                              ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                              CssClass="ad-usage__pick" />
+                    <DxButton Text="추가" IconCssClass="jsini-icon-plus"
+                              Enabled="@(_pickedAccounts.Any())"
+                              Click="@AddAsync" />
+                </div>
+            </PermissionView>
+
+            <div class="ad-targets">
+                @foreach (var manager in Managers)
+                {
+                    <div class="ad-target">
+                        <UserAvatar LoginId="@manager.LoginId" Name="@manager.UserName" CssClass="ad-target__face" />
+                        <span class="ad-target__body">
+                            <span class="ad-target__name">@manager.UserName (@manager.LoginId)</span>
+                            <span class="ad-target__meta">@ManagerMeta(manager)</span>
+                        </span>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => RemoveAsync(manager))" />
+                        </PermissionView>
+                    </div>
+                }
+
+                @if (Managers.Count == 0)
+                {
+                    <p class="ad-stamp">담당자가 없습니다.</p>
+                }
+            </div>
+        }
+    </section>
+    </DxSplitterPane>
+
+    </Panes>
+</DxSplitter>

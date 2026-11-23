@@ -36,7 +36,7 @@ namespace AuthServer.Migrations
                     b.Property<DateOnly?>("BirthDate")
                         .HasColumnType("date")
                         .HasColumnName("birth_date")
-                        .HasComment("생년월일.  가 참이면 음력 월·일로 해석한다.\n            \n            생일의 정본은 여기(포털 계정)다 — 입력·수정은 계정 관리 화면이 하고,\n            생일 화면(/birthday/*)은 읽기만 한다 (docs/sql/account_birthday.sql).");
+                        .HasComment("생년월일.  가 참이면 음력 월·일로 해석한다.\n            생일의 정본은 여기(포털 계정)다. 입력·수정은 계정 관리 화면이, 생일 화면(/birthday/*)은 읽기만 한다.");
 
                     b.Property<bool>("BirthDateIsLunar")
                         .HasColumnType("boolean")
@@ -94,7 +94,7 @@ namespace AuthServer.Migrations
                     b.Property<DateTime?>("PasswordChangedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("password_changed_at")
-                        .HasComment("비밀번호를 마지막으로 바꾼 시각 (UTC). 90일 만료 계산의 기준이다.\n            \n            null 이면 기준을 알 수 없다는 뜻이라 만료로 보지 않는다.\n            기존 계정은 docs/sql/account_login_audit.sql 이 실행 시각으로 채워 두었다.");
+                        .HasComment("비밀번호를 마지막으로 바꾼 시각 (UTC). 90일 만료 계산의 기준이다.\n            null 이면 기준을 알 수 없어 만료로 보지 않는다. 기존 계정은 실행 시각으로 채워 두었다(docs/sql/account_login_audit.sql).");
 
                     b.Property<string>("RealName")
                         .HasColumnType("text")
@@ -225,7 +225,7 @@ namespace AuthServer.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("payload")
-                        .HasComment("기본값과 다른 항목만 담은 JSON 문자열. jsonb 로 저장한다.\n            서버가 들여다보지 않으므로 문자열로 들고 있는 것이 가장 싸다.");
+                        .HasComment("기본값과 다른 항목만 담은 JSON 문자열. jsonb 로 저장한다. 서버가 들여다보지 않으므로 문자열로 들고 있는 것이 가장 싸다.");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -242,7 +242,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("account_preferences", "scom", t =>
                         {
-                            t.HasComment("계정별 화면 환경설정 (테마 · 레이아웃 · 위젯 위치 · 단축키 …)");
+                            t.HasComment("계정별 화면 환경설정(테마 · 레이아웃 · 위젯 위치 · 단축키 …). 브라우저가 아니라 계정에 붙여 어느 기기에서 로그인해도 따라오게 한다.");
                         });
                 });
 
@@ -364,7 +364,7 @@ namespace AuthServer.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("provider_user_id")
-                        .HasComment("공급자가 지어 준 사용자 번호. 로그인은 이 값으로 주인을 찾는다\n            (머리말 참고). 공급자 안에서만 고유하므로  와 짝으로 쓴다.");
+                        .HasComment("로그인은 이 값으로 주인을 찾는다. 공급자 안에서만 고유하므로 Provider 와 짝으로 쓴다.");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -383,7 +383,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("account_social_logins", "scom", t =>
                         {
-                            t.HasComment("계정 하나에 연결된 소셜 계정 한 개.\n             구글 · 네이버 · 카카오가 모두 여기 한 줄로 남는다.");
+                            t.HasComment("계정 하나에 연결된 소셜 계정 한 개.\n            구글 · 네이버 · 카카오가 모두 여기 한 줄로 남는다.");
                         });
                 });
 
@@ -402,12 +402,12 @@ namespace AuthServer.Migrations
                     b.Property<int>("Algorithm")
                         .HasColumnType("integer")
                         .HasColumnName("algorithm")
-                        .HasComment("서명 알고리즘 (COSE 식별자). -7 = ES256, -257 = RS256.\n            검증할 때 어느 열쇠 형식으로 읽을지를 이 값이 정한다.");
+                        .HasComment("서명 알고리즘(COSE 식별자). -7 = ES256, -257 = RS256. 이 값이 검증할 열쇠 형식을 정한다.");
 
                     b.Property<string>("Attachment")
                         .HasColumnType("text")
                         .HasColumnName("attachment")
-                        .HasComment("인증기 종류 — platform(기기에 붙박이: 지문·얼굴) ·\n            cross-platform(따로 꽂는 보안 열쇠).");
+                        .HasComment("인증기 종류 — platform(기기 붙박이) · cross-platform(따로 꽂는 보안 열쇠).");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -421,7 +421,7 @@ namespace AuthServer.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("credential_id")
-                        .HasComment("인증기가 지어 준 자격 증명 아이디 (base64url).\n            로그인할 때 브라우저가 이 값을 들고 오므로 여기로 찾는다.");
+                        .HasComment("인증기가 지어 준 자격 증명 아이디(base64url). 로그인 때 이 값으로 주인을 찾는다.");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -430,7 +430,7 @@ namespace AuthServer.Migrations
                     b.Property<string>("Label")
                         .HasColumnType("text")
                         .HasColumnName("label")
-                        .HasComment("사용자가 알아볼 이름. 「아이폰 지문」처럼 사람이 붙인다.\n            기기가 여럿이면 어느 줄을 지워야 하는지를 이 이름으로만 알 수 있다.");
+                        .HasComment("사용자가 알아볼 이름. 「아이폰 지문」처럼 사람이 붙인다.");
 
                     b.Property<DateTime?>("LastUsedAt")
                         .HasColumnType("timestamp with time zone")
@@ -441,7 +441,7 @@ namespace AuthServer.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("public_key")
-                        .HasComment("공개 키. SubjectPublicKeyInfo DER 을 base64 로 담는다.\n            \n            COSE 형식 그대로가 아니라 SPKI 로 두는 이유는 .NET 이 그 형식을\n            바로 읽기 때문이다(ECDsa.ImportSubjectPublicKeyInfo). COSE 를\n            담으면 검증할 때마다 CBOR 을 풀어야 하고, 그 코드가 곧\n            서명 검증에서 가장 틀리기 쉬운 자리가 된다.");
+                        .HasComment("공개 키. SubjectPublicKeyInfo DER 을 base64 로 담는다.");
 
                     b.Property<long>("SignCount")
                         .HasColumnType("bigint")
@@ -465,7 +465,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("account_webauthn_credentials", "scom", t =>
                         {
-                            t.HasComment("계정 하나에 등록된 패스키(WebAuthn 인증기) 한 개.\n             휴대폰 지문·얼굴, 윈도우 Hello, 보안 열쇠가 모두 여기 한 줄로 남는다.");
+                            t.HasComment("계정 하나에 등록된 패스키(WebAuthn 인증기) 한 개. 지문·얼굴·보안 열쇠가 모두 여기 한 줄로 남는다.");
                         });
                 });
 
@@ -525,7 +525,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("birthday_messages", "scom", t =>
                         {
-                            t.HasComment("생일 축하 메시지 엔티티 클래스 (scom.birthday_messages)");
+                            t.HasComment("생일 축하 메시지(scom.birthday_messages). 보낸 이·받는 이는 계정의 user_id 값이고 FK 는 걸지 않는다.");
                         });
                 });
 
@@ -574,7 +574,7 @@ namespace AuthServer.Migrations
                     b.Property<string>("ParamPath")
                         .HasColumnType("text")
                         .HasColumnName("param_path")
-                        .HasComment("화면이 넘기는 런타임 파라미터를 본문의 어느 자리에 넣을지 (점 표기).\n            비어 있으면 본문(또는 쿼리스트링) 최상위에 붙인다.\n            예: 프로젝트관리는 MainParam.");
+                        .HasComment("화면이 넘기는 런타임 파라미터를 본문의 어느 자리에 넣을지(점 표기). 비어 있으면 본문 최상위에 붙인다.");
 
                     b.Property<string>("ProcessorType")
                         .HasColumnType("text")
@@ -595,12 +595,12 @@ namespace AuthServer.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("service_code")
-                        .HasComment("어느 MSA 를 호출할지 (게이트웨이 프리픽스이자 프론트 요청 클라이언트 선택 키).\n             auth · funeral · helpdesk · projmng · file · ai\n            \n             서비스마다 응답 봉투가 달라서(포털 { code, data }, 헬프데스크 { success, data },\n             프로젝트관리 { code:숫자, cols, data }) 프론트는 이 값으로 봉투를 벗길 클라이언트를 고른다.\n             단순한 URL 프리픽스가 아니다.");
+                        .HasComment("어느 MSA 를 호출할지(게이트웨이 프리픽스이자 클라이언트 선택 키): auth · funeral · helpdesk · projmng · file · ai. 응답 봉투가 서비스마다 달라 이 키로 풀이 방식이 갈린다.");
 
                     b.Property<string>("StaticParams")
                         .HasColumnType("text")
                         .HasColumnName("static_params")
-                        .HasComment("호출할 때 항상 함께 보내는 고정 파라미터 (JSON 객체).\n            프로젝트관리처럼 프로시저 이름을 본문에 실어야 하는 경우에 쓴다.\n            예: {\"ProcName\":\"sp_projCommon\",\"ProcType\":\"srch\"}");
+                        .HasComment("호출할 때 항상 함께 보내는 고정 파라미터(JSON 객체). 프로시저 이름을 본문에 실어야 하는 경우에 쓴다.");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -638,7 +638,7 @@ namespace AuthServer.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("client_ip")
-                        .HasComment("접속 주소. 위조할 수 있는 값이라 보여 주기 전용이다 —\n            이것으로 무엇을 판단하지 않는다(ClientAddress 머리말).");
+                        .HasComment("접속 주소. 위조할 수 있는 값이라 보여 주기 전용이다 — 이것으로 무엇을 판단하지 않는다.");
 
                     b.Property<string>("FromPath")
                         .HasMaxLength(512)
@@ -651,7 +651,7 @@ namespace AuthServer.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("href")
-                        .HasComment("막힌 주소. 사람이 실제로 연 그 값이라 매개변수가 들어 있다\n            (/admin/system/account/jupark/app) — 「누구의 것을 보려 했나」가\n            이 칸에만 남는다.");
+                        .HasComment("막힌 주소. 사람이 실제로 연 값이라 매개변수가 들어 있다 — 「누구의 것을 보려 했나」가 이 칸에만 남는다.");
 
                     b.Property<string>("MenuPath")
                         .HasMaxLength(512)
@@ -669,7 +669,7 @@ namespace AuthServer.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("reason")
-                        .HasComment("왜 막혔나 — NO_PERMISSION(권한 없음) · UNMANAGED(관리 밖).\n            둘을 가르는 것이 이 표의 요점이다: 앞엣것은 권한 화면에서 체크\n            하나면 끝나고, 뒤엣것은 메뉴를 만들거나 코드를 고치기 전에는 안 열린다.");
+                        .HasComment("왜 막혔나 — NO_PERMISSION(권한 없음) · UNMANAGED(관리 밖). 권한 화면에서 체크 하나면 끝나는 쪽과 메뉴를 만들거나 코드를 고쳐야 하는 쪽을 가르는 것이 이 표의 요점이다.");
 
                     b.Property<string>("RouteKey")
                         .HasMaxLength(128)
@@ -700,7 +700,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("blocked_access_logs", "scom", t =>
                         {
-                            t.HasComment("차단 한 건 — 권한 밖의 화면을 누가 어떤 주소로 열려 했나.");
+                            t.HasComment("차단 한 건 — 권한 밖의 화면을 누가 어떤 주소로 열려 했나. 열린 화면을 적는 menu_usage_logs 와 한 표에 섞지 않는다 — 섞으면 「많이 쓰는 화면」과 「막힌 시도」가 한 숫자로 뭉친다.");
                         });
                 });
 
@@ -999,7 +999,68 @@ namespace AuthServer.Migrations
 
                     b.ToTable("company_usage_locations", "scom", t =>
                         {
-                            t.HasComment("회사 사용처. 그 회사가 어느 시스템에서 쓰이는지를 공통코드로 담는다.");
+                            t.HasComment("회사 사용처. 그 회사가 어느 시스템에서 쓰이는지를 공통코드로 담는다. 한 회사가 여러 개를 가질 수 있고 하나도 없을 수도 있어 회사 표에 칸을 두지 않는다.");
+                        });
+                });
+
+            modelBuilder.Entity("AuthServer.Entities.CompanyUsageManager", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("account_id")
+                        .HasComment("담당자 계정 식별자 (scom.accounts.id)");
+
+                    b.Property<string>("CodeValue")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code_value")
+                        .HasComment("사용처 코드값 (COMPANY_USAGE_LOCATION 그룹의 code_value)");
+
+                    b.Property<string>("CompanyId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("company_id")
+                        .HasComment("회사 식별자 (scom.companies.id)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("CompanyId", "CodeValue", "AccountId")
+                        .IsUnique();
+
+                    b.ToTable("company_usage_managers", "scom", t =>
+                        {
+                            t.HasComment("회사 사용처의 처리 담당자 — 그 회사의 그 사용처(예: 헬프데스크) 일을 누가 맡는가.");
                         });
                 });
 
@@ -1190,7 +1251,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("help_archives", "scom", t =>
                         {
-                            t.HasComment("자료실 항목 (/help/archive)");
+                            t.HasComment("자료실 항목(/help/archive). F.A.Q 와 같은 방침이다 — 관리 포털이 관리하고 모든 사용자에게 공통으로 보인다.");
                         });
                 });
 
@@ -1264,7 +1325,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("help_archive_files", "scom", t =>
                         {
-                            t.HasComment("자료실 첨부파일");
+                            t.HasComment("자료실 첨부파일. 모양은 NoticeFile 과 맞춘다 — 첨부는 전부 FileServer 로 가고 여기는 발급받은 file_id 만 든다.");
                         });
                 });
 
@@ -1331,6 +1392,70 @@ namespace AuthServer.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AuthServer.Entities.LayoutHeaderIcon", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("DefaultEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("default_enabled");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("icon");
+
+                    b.Property<string>("IconKey")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("icon_key");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("OrderNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_no");
+
+                    b.Property<string>("Path")
+                        .HasColumnType("text")
+                        .HasColumnName("path");
+
+                    b.Property<string>("RouteKey")
+                        .HasColumnType("text")
+                        .HasColumnName("route_key");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IconKey")
+                        .IsUnique();
+
+                    b.ToTable("layout_header_icons", "scom", t =>
+                        {
+                            t.HasComment("레이아웃 상단 도구 아이콘 목록 및 기본 사용 여부 엔티티 클래스");
+                        });
+                });
+
             modelBuilder.Entity("AuthServer.Entities.MenuFavorite", b =>
                 {
                     b.Property<int>("Id")
@@ -1344,7 +1469,7 @@ namespace AuthServer.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("account_id")
-                        .HasComment("연관된 사용자 계정 식별자 (ID) — scom.accounts.id");
+                        .HasComment("연관된 사용자 계정 식별자(scom.accounts.id). 게이트웨이의 X-User-Id 는 로그인 아이디라 다르므로 계정을 찾아 이 식별자로 바꿔 담는다.");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1386,7 +1511,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("menu_favorites", "scom", t =>
                         {
-                            t.HasComment("사용자별 즐겨찾기 메뉴 엔티티 클래스 (계정 - 메뉴 N:M 관계 해소용 매핑 테이블)\n            \n             \n             자주 쓰는 화면을 사용자가 직접 모아 두는 곳이다. 탭을 오른쪽 눌러 추가하고,\n             왼쪽 사이드바 맨 위 '즐겨찾기' 묶음에서 바로 열 수 있다.\n             메뉴를 경로가 아니라 식별자로 가리킨다. 화면(탭)이 아는 것은 경로뿐이라\n             등록·해제 API 는 경로를 받지만, 저장할 때는 scom.system_menus 를 찾아\n             그 식별자를 넣는다. 경로를 그대로 저장하면 메뉴 관리에서 경로를 고치는 순간\n             즐겨찾기가 아무 곳도 가리키지 않는 값으로 조용히 남는다.\n             \n             제목·아이콘은 여기 담지 않는다. 메뉴 쪽 값이 정본이고, 읽을 때 함께 조회한다.\n             베껴 두면 메뉴 제목을 고쳤을 때 즐겨찾기만 옛 이름으로 남는다.");
+                            t.HasComment("사용자별 즐겨찾기 메뉴(계정 - 메뉴 N:M 매핑 테이블). 메뉴를 경로가 아니라 식별자로 가리킨다.");
                         });
                 });
 
@@ -1639,7 +1764,7 @@ namespace AuthServer.Migrations
                     b.Property<string>("RequestIp")
                         .HasColumnType("text")
                         .HasColumnName("request_ip")
-                        .HasComment("요청이 들어온 아이피. 누가 남의 계정으로 링크를 뿌리고 있는지\n            나중에 볼 수 있어야 한다.");
+                        .HasComment("요청이 들어온 IP. 누가 남의 계정으로 링크를 뿌리는지 볼 수 있게 남긴다.");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
@@ -1722,7 +1847,7 @@ namespace AuthServer.Migrations
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at")
-                        .HasComment("오류가 난 때(UTC).  와 따로 두는 이유는\n            보고가 늦을 수 있기 때문이다 — 포털이 큐에 쌓아 두었다가 보내고,\n            게이트웨이가 죽어 있으면 되살아난 뒤에 보낸다.");
+                        .HasComment("오류가 난 때(UTC).  와 따로 두는 이유는\n            보고가 늦을 수 있으므로(포털이 큐에 쌓아 보내고, 게이트웨이가 죽어 있으면 되살아난 뒤에 보낸다) CreatedAt 과 따로 둔다.");
 
                     b.Property<string>("Path")
                         .HasMaxLength(512)
@@ -1748,7 +1873,7 @@ namespace AuthServer.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("trace_id")
-                        .HasComment("추적 번호의 가운데 32자리(W3C trace-id). 조회 열쇠다.\n             사용자는 번호를 통째로 읽어 주고, 받아 적는 사람은 중간만 옮겨 적기도 한다.\n             그래서 전체()와 가운데를 따로 들고, 조회는\n             가운데로 한다 — 어느 쪽을 쳐도 찾히게 하려면 기준이 하나여야 한다.");
+                        .HasComment("추적 번호의 가운데 32자리(W3C trace-id). 조회 열쇠다.\n            사용자는 번호를 통째로 또는 가운데만 옮겨 적으므로, 조회는 가운데 32자리로 한다 — 어느 쪽을 쳐도 찾히게 하려면 기준이 하나여야 한다.");
 
                     b.Property<string>("Traceparent")
                         .HasMaxLength(128)
@@ -1768,7 +1893,7 @@ namespace AuthServer.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("user_agent")
-                        .HasComment("브라우저·기기. 이 기능을 만든 까닭이 여기 있다 — 모바일에서만 나는\n            오류를 PC 로 재현하려다 놓치는 일이 있다.");
+                        .HasComment("모바일에서만 나는 오류를 PC 로 재현하려다 놓치는 일이 있어 기기 정보를 남긴다.");
 
                     b.Property<string>("UserId")
                         .HasMaxLength(128)
@@ -1871,189 +1996,6 @@ namespace AuthServer.Migrations
                         });
                 });
 
-            modelBuilder.Entity("AuthServer.Entities.ReleaseRun", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("text")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Args")
-                        .HasColumnType("text")
-                        .HasColumnName("args")
-                        .HasComment("스크립트에 넘긴 인자 (JSON 배열 문자열)");
-
-                    b.Property<string>("CallbackToken")
-                        .HasColumnType("text")
-                        .HasColumnName("callback_token")
-                        .HasComment("배포 장비가 보고할 때 쓰는 1회용 토큰. 계정 인증이 아니라 실행 인증이다.");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("CurrentStep")
-                        .HasColumnType("text")
-                        .HasColumnName("current_step")
-                        .HasComment("마지막으로 지나간 단계 이름. 스크립트가 ##STEP ... 을 찍은 경우에만 찬다.");
-
-                    b.Property<string>("DeployedVersion")
-                        .HasColumnType("text")
-                        .HasColumnName("deployed_version")
-                        .HasComment("배포 후 대상이 스스로 알려 준 버전. 설정에 VersionUrl 이 있는 대상만 채워진다.");
-
-                    b.Property<int?>("ExitCode")
-                        .HasColumnType("integer")
-                        .HasColumnName("exit_code")
-                        .HasComment("스크립트 종료 코드. 0 이면 성공으로 본다.");
-
-                    b.Property<DateTime?>("FinishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("finished_at");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_deleted");
-
-                    b.Property<int>("LastSeq")
-                        .HasColumnType("integer")
-                        .HasColumnName("last_seq")
-                        .HasComment("지금까지 받은 이벤트의 마지막 순번. 화면이 sinceSeq 로 이어 받는다.");
-
-                    b.Property<string>("Message")
-                        .HasColumnType("text")
-                        .HasColumnName("message")
-                        .HasComment("사람이 읽을 최종 한 줄. 실패 사유가 여기 들어간다.");
-
-                    b.Property<bool>("ReportsProgress")
-                        .HasColumnType("boolean")
-                        .HasColumnName("reports_progress")
-                        .HasComment("이 대상이 보고를 하기로 되어 있었나.");
-
-                    b.Property<string>("RequestedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("requested_by")
-                        .HasComment("요청한 사람. 게이트웨이가 넘긴 로그인 아이디다.");
-
-                    b.Property<string>("ScriptPath")
-                        .HasColumnType("text")
-                        .HasColumnName("script_path")
-                        .HasComment("그때 실행을 요청한 스크립트 경로.");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at")
-                        .HasComment("배포 장비가 처음 보고를 보내 온 시각. 큐에서 집어간 시각이다.");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("status")
-                        .HasComment("참고.");
-
-                    b.Property<string>("TargetKey")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("target_key")
-                        .HasComment("어떤 대상을 배포했나. 설정(Release:Targets)의 Key 다.");
-
-                    b.Property<string>("TargetName")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("target_name")
-                        .HasComment("그때의 표시 이름. 설정이 나중에 바뀌어도 이력은 그대로 읽혀야 하므로 박아 둔다.");
-
-                    b.Property<int>("TimeoutSeconds")
-                        .HasColumnType("integer")
-                        .HasColumnName("timeout_seconds")
-                        .HasComment("이 시간을 넘기면 timeout 으로 본다 (초).");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TargetKey")
-                        .IsUnique()
-                        .HasFilter("status IN ('queued', 'running') AND is_deleted = false");
-
-                    b.ToTable("release_runs", "scom", t =>
-                        {
-                            t.HasComment("배포 실행 한 건 (/portal/release)");
-                        });
-                });
-
-            modelBuilder.Entity("AuthServer.Entities.ReleaseRunEvent", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("text")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_deleted");
-
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("level")
-                        .HasComment("info / stdout / step / warn / error / result");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("message");
-
-                    b.Property<string>("RunId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("run_id");
-
-                    b.Property<int>("Seq")
-                        .HasColumnType("integer")
-                        .HasColumnName("seq")
-                        .HasComment("run 안에서의 순번. 화면이 sinceSeq 로 이어 받으므로 빈틈이 없어야 한다.");
-
-                    b.Property<string>("Step")
-                        .HasColumnType("text")
-                        .HasColumnName("step")
-                        .HasComment("level 이 step 인 경우의 단계 이름");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RunId", "Seq")
-                        .IsUnique();
-
-                    b.ToTable("release_run_events", "scom", t =>
-                        {
-                            t.HasComment("배포 진행 로그 한 줄");
-                        });
-                });
-
             modelBuilder.Entity("AuthServer.Entities.ReportMailSchedule", b =>
                 {
                     b.Property<string>("Id")
@@ -2142,7 +2084,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("report_mail_schedules", "scom", t =>
                         {
-                            t.HasComment("보고서 메일 배치 하나 — 어떤 보고서를 · 어느 역할에게 ·\n             얼마나 자주 보낼지를 묶은 줄.");
+                            t.HasComment("보고서 메일 배치 하나 — 어떤 보고서를 · 어느 역할에게 ·\n            얼마나 자주 보낼지를 묶은 줄.");
                         });
                 });
 
@@ -2410,7 +2352,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("role_companies", "scom", t =>
                         {
-                            t.HasComment("역할 - 회사 매핑. 그 회사에 속한 사람 전부에게 적용되는 기본 역할이다.\n            \n             \n             역할은 세 단계로 줄 수 있다 — 회사 · 부서 · 사람. 셋을 모두 합쳐 적용된다.\n             어느 한 단계가 다른 단계를 덮어쓰지 않는다\n             (자세한 규칙은 RoleAssignmentService.ResolveEffectiveRolesAsync 주석 참고).");
+                            t.HasComment("역할 - 회사 매핑. 그 회사에 속한 사람 전부에게 적용되는 기본 역할이다. 역할은 회사·부서·사람 세 단계에 줄 수 있고 셋을 모두 합쳐 적용된다 — 어느 한 단계가 다른 단계를 덮어쓰지 않는다.");
                         });
                 });
 
@@ -2464,7 +2406,7 @@ namespace AuthServer.Migrations
 
                     b.ToTable("role_departments", "scom", t =>
                         {
-                            t.HasComment("역할 - 부서 매핑. 그 부서에 속한 사람에게 적용되는 역할이다.\n            상위 부서에 걸린 역할도 함께 물려받는다( 주석 참고).");
+                            t.HasComment("역할 - 부서 매핑. 그 부서에 속한 사람에게 적용되며, 상위 부서에 걸린 역할도 물려받는다.");
                         });
                 });
 
@@ -2597,6 +2539,75 @@ namespace AuthServer.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AuthServer.Entities.ServerPingTarget", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("ip");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<int>("TimeoutMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("timeout_ms");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("server_ping_targets", "scom", t =>
+                        {
+                            t.HasComment("내부 서버 Ping 감시 대상 장비 엔티티");
+                        });
+                });
+
             modelBuilder.Entity("AuthServer.Entities.SystemMenu", b =>
                 {
                     b.Property<string>("Id")
@@ -2723,7 +2734,7 @@ namespace AuthServer.Migrations
                     b.Property<bool>("KeepAlive")
                         .HasColumnType("boolean")
                         .HasColumnName("keep_alive")
-                        .HasComment("페이지 캐싱(Keep-Alive) 적용 여부");
+                        .HasComment("탭을 옮겨도 화면을 살려 둘지(Keep-Alive). 켠 화면은 보이지 않는 동안에도 돌므로 기본은 끈다 — DB 기본값과 같아야 한다.");
 
                     b.Property<string>("Link")
                         .HasColumnType("text")
@@ -2982,6 +2993,25 @@ namespace AuthServer.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("AuthServer.Entities.CompanyUsageManager", b =>
+                {
+                    b.HasOne("AuthServer.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AuthServer.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Company");
+                });
+
             modelBuilder.Entity("AuthServer.Entities.Department", b =>
                 {
                     b.HasOne("AuthServer.Entities.Company", "Company")
@@ -3052,17 +3082,6 @@ namespace AuthServer.Migrations
                         .HasForeignKey("ParentId");
 
                     b.Navigation("Parent");
-                });
-
-            modelBuilder.Entity("AuthServer.Entities.ReleaseRunEvent", b =>
-                {
-                    b.HasOne("AuthServer.Entities.ReleaseRun", "Run")
-                        .WithMany("Events")
-                        .HasForeignKey("RunId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Run");
                 });
 
             modelBuilder.Entity("AuthServer.Entities.ReportMailScheduleReport", b =>
@@ -3203,11 +3222,6 @@ namespace AuthServer.Migrations
             modelBuilder.Entity("AuthServer.Entities.QnaPost", b =>
                 {
                     b.Navigation("Children");
-                });
-
-            modelBuilder.Entity("AuthServer.Entities.ReleaseRun", b =>
-                {
-                    b.Navigation("Events");
                 });
 
             modelBuilder.Entity("AuthServer.Entities.ReportMailSchedule", b =>

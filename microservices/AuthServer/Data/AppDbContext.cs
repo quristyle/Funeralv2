@@ -41,6 +41,9 @@ public class AppDbContext : DbContext
 
     /// <summary>회사 사용처 (COMPANY_USAGE_LOCATION 공통코드 배정)</summary>
     public DbSet<CompanyUsageLocation> CompanyUsageLocations { get; set; }
+
+    /// <summary>회사 사용처의 처리 담당자</summary>
+    public DbSet<CompanyUsageManager> CompanyUsageManagers { get; set; }
     public DbSet<RoleDepartment> RoleDepartments { get; set; }
     public DbSet<BirthdayMessage> BirthdayMessages { get; set; }
 
@@ -137,6 +140,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RoleMenu>()
             .HasIndex(rm => new { rm.RoleId, rm.MenuId })
             .IsUnique();
+
+        // 같은 회사·사용처에 같은 사람을 두 번 넣지 못하게 한다. 회사나 계정을 지우면 함께 지운다.
+        modelBuilder.Entity<CompanyUsageManager>(entity =>
+        {
+            entity.HasIndex(m => new { m.CompanyId, m.CodeValue, m.AccountId }).IsUnique();
+            entity.HasIndex(m => m.AccountId);
+            entity.HasOne(m => m.Company).WithMany().HasForeignKey(m => m.CompanyId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(m => m.Account).WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         // 같은 회사·부서에 같은 역할을 두 번 걸지 못하게 한다.
         modelBuilder.Entity<RoleCompany>()

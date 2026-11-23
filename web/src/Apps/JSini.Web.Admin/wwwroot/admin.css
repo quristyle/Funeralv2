@@ -6307,3 +6307,34 @@
 .ad-gmail__age {
     min-width: 10rem;
 }
+
+/* ── 사용처 담당자: 세 단 (`ad-usage`) ────────────────────
+   `ad-vsplit` 을 판 셋으로 쓴다. 가운데 판은 왼쪽 판 규칙(제목 붙박이 · 목록만 구른다)을 받고
+   양쪽 구분선에서 떨어지도록 왼쪽 여백만 더한다. 오른쪽 판은 넣는 줄 아래 목록만 구른다.
+   ---------------------------------------------------------- */
+
+.ad-usage__mid { padding-left: 0.8rem; }
+
+.ad-usage__right > .ad-targets {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.ad-usage__add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.ad-usage__pick {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (width < 992px) {
+  .ad-usage__mid { padding-left: 0; margin-top: 1rem; }
+  .ad-usage__right { margin-top: 1rem; }
+  .ad-usage__right > .ad-targets { max-height: 60vh; }
+}

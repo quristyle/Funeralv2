@@ -285,6 +285,12 @@ public partial class RequestManage : IDisposable
         {
             _companyIds = Context.CompanyId is { } mine ? [mine] : [];
         }
+        else if (!_seeded)
+        {
+            // 처음 여는 시스템관리자에게는 맡은 회사(사용처 담당자 · HELP_DESK)를 미리 고른다. 고르개에 없는 회사는 버린다.
+            var managed = await Context.LoadManagedCompanyIdsAsync();
+            _companyIds = [.. managed.Where(id => Context.CompanyOptions.Any(o => o.Value == id))];
+        }
 
         // 고객이면 요청자를 나로 고정하고 「처리 중인 것만」을 끈다. 가르는 것은 관리자 여부(IsAdmin) 하나다.
         // 요청자 칸은 잠겨 있어 주소·돌아온 길에서도 언제나 나이고, 「처리 중인 것만」은 기본값만 바꾼다.
