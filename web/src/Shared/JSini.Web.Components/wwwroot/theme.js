@@ -2479,6 +2479,10 @@
  * 늘 「상단 근처」라 본문을 내릴 때마다 헤더를 되살렸다. 셸이 있으면 문서
  * 스크롤은 보지 않는다. 휴대폰 폭에서 사용자가 이 기능을 끄면 셸에
  * jsini-shell--autohide-mobile-off 가 붙는다(환경설정 · MainLayout.ShellCss).
+ *
+ * **본문 상자(`.jsini-shell__content`) 자신이 구를 때만 반응한다.** 그 안의 표처럼
+ * 높이를 남은 자리에 맞춰 받는 상자를 함께 받으면, 숨김 → 본문이 커짐 → 표가
+ * 길어져 위치가 당겨짐 → 다시 보임 → 표가 줄어듦 … 으로 헤더가 오르내린다.
  */
 (function () {
   var SHELL = '.jsini-shell';
@@ -2492,9 +2496,6 @@
 
   /** 미세한 손떨림이나 터치 떨림으로 헤더가 깜빡이지 않게 하는 최소 이동 거리 (px). */
   var DELTA_THRESHOLD = 5;
-
-  /** 본문 높이의 이만큼은 되어야 「화면을 구르는 상자」로 친다. */
-  var MIN_RATIO = 0.5;
 
   /** 휠·키 입력 뒤 이만큼은 사람이 굴린 것으로 친다 (ms). 부드러운 굴림이 이어지는 시간. */
   var INPUT_WINDOW = 400;
@@ -2571,10 +2572,6 @@
       && !!window.matchMedia && window.matchMedia(MOBILE_QUERY).matches;
   }
 
-  function isMainScroller(el, content) {
-    return el.clientHeight >= content.clientHeight * MIN_RATIO;
-  }
-
   function handleScroll(scroller) {
     if (!scroller) return;
 
@@ -2635,11 +2632,11 @@
     var el = e.target;
     if (!el || el.nodeType !== 1 || !el.closest) return;
 
-    var content = el.closest(BOX);
-    if (!content) return;
+    // 본문 상자 자신만 받는다 — 안쪽 표·판의 굴림은 헤더를 건드리지 않는다.
+    if (!el.matches || !el.matches(BOX)) return;
+    var content = el;
 
-    if (content.querySelector('.site-ai-chat') || el.closest('.site-ai-chat')) return;
-    if (el !== content && !isMainScroller(el, content)) return;
+    if (content.querySelector('.site-ai-chat')) return;
 
     watchContent(content);
     schedule(el);
