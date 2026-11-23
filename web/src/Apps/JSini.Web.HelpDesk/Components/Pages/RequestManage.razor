@@ -19,11 +19,14 @@
     <Fields>
         @if (Context.IsSystemAdmin)
         {
+            @* 회사는 여럿 고른다. 아무것도 안 고르면 「전체」라 「전체」 항목은 두지 않는다(상태 칸과 같은 규칙). *@
             <CommSchItem Label="회사">
-                <DxComboBox Data="@CompanyFilterOptions" @bind-Value="_companyId" @bind-Value:after="ReloadAsync"
-                            TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
-                            Style="width: 180px"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                <DxTagBox TData="BizOption" TValue="string"
+                          Data="@Context.CompanyOptions"
+                          TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
+                          Values="@_companyIds" ValuesChanged="@OnCompaniesChangedAsync"
+                          Style="width: 240px"
+                          ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </CommSchItem>
         }
 

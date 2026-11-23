@@ -33,7 +33,7 @@ public partial class RequestManage : IDisposable
     /// <summary>기간 끝(<c>yyyy-MM-dd</c>). <b>그 날을 포함한다</b>(하루 끝까지).</summary>
     [SupplyParameterFromQuery(Name = "to")] public string? ToQuery { get; set; }
 
-    /// <summary>회사. 시스템관리자가 아니면 제 회사로 덮인다.</summary>
+    /// <summary>회사. 여럿이면 <c>|</c> 나 쉼표로 잇는다. 시스템관리자가 아니면 제 회사로 덮인다.</summary>
     [SupplyParameterFromQuery(Name = "company")] public string? CompanyQuery { get; set; }
 
     /// <summary>「처리 중인 것만」. 타일은 항상 false 로 보낸다 — 화면 기본값이 켜짐이라 안 끄면 완료·반려 타일이 빈 목록이 된다.</summary>
@@ -48,7 +48,7 @@ public partial class RequestManage : IDisposable
     /// <summary>떠날 때 챙기는 조건과 그 조건으로 읽어 둔 줄. 돌아오면 다시 묻지 않는다.
     /// 줄은 번호(SelectedId)로, 더보기 줄 수(Take)·묶음 수(Batches)도 함께 든다.</summary>
     private sealed record Kept(
-        string? CompanyId,
+        IReadOnlyList<string> CompanyIds,
         string? RequesterId,
         IReadOnlyList<string> Statuses,
         string? AdminId,
@@ -65,13 +65,19 @@ public partial class RequestManage : IDisposable
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
-        Context.IsSystemAdmin ? SchSummary.NameOf(CompanyFilterOptions, o => o.Value, o => o.Label, _companyId) : null,
+        Context.IsSystemAdmin ? CompanySummary : null,
         SchSummary.NameOf(RequesterFilterOptions, o => o.Value, o => o.Label, _requesterId),
         StatusSummary,
         SchSummary.NameOf(Context.AdminOptions, o => o.Value, o => o.Label, _adminId),
         SchSummary.Or(_keyword),
         PeriodSummary,
         SchSummary.On(_onlyOpen, "처리 중인 것만"));
+
+    /// <summary>고른 회사를 한 줄로. 아무것도 안 골랐으면 「전체」.</summary>
+    private string CompanySummary => _companyIds.Count == 0
+        ? SchSummary.Any
+        : string.Join(", ", _companyIds.Select(id =>
+            Context.CompanyOptions.FirstOrDefault(o => o.Value == id)?.Label ?? id));
 
     /// <summary>고른 상태를 한 줄로. 아무것도 안 골랐으면 「전체」(하나짜리 NameOf 를 여럿으로 옮긴 것).</summary>
     private string StatusSummary => _statuses.Count == 0
@@ -135,7 +141,8 @@ public partial class RequestManage : IDisposable
 
     private string? _keyword;
     private IReadOnlyList<string> _statuses = [];
-    private string? _companyId;
+    /// <summary>고른 회사들. 비면 전체. 시스템관리자가 아니면 제 회사 하나로 덮인다.</summary>
+    private IReadOnlyList<string> _companyIds = [];
     private string? _requesterId;
     private string? _adminId;
     private bool _onlyOpen = true;
@@ -170,11 +177,11 @@ public partial class RequestManage : IDisposable
     {
         get
         {
-            var companyId = Context.IsSystemAdmin ? _companyId : Context.CompanyId;
-            var items = string.IsNullOrEmpty(companyId) 
-                ? Context.CustomerItems 
-                : Context.CustomerItems.Where(item => 
-                    BizOptionService.GetText(item, "companyId") == companyId);
+            var companyIds = SearchCompanyIds;
+            var items = companyIds.Count == 0
+                ? Context.CustomerItems
+                : Context.CustomerItems.Where(item =>
+                    BizOptionService.GetText(item, "companyId") is { } c && companyIds.Contains(c));
             var filtered = items.Select(item => new BizOption(
                 BizOptionService.GetText(item, "userName") ?? "",
                 BizOptionService.GetText(item, "id")
@@ -183,8 +190,11 @@ public partial class RequestManage : IDisposable
         }
     }
 
-    private IReadOnlyList<BizOption> CompanyFilterOptions =>
-        [new("전체", null), .. Context.CompanyOptions];
+    /// <summary>조회에 실을 회사들. 시스템관리자만 고른 것을 쓰고, 나머지는 제 회사 하나다.</summary>
+    private IReadOnlyList<string> SearchCompanyIds =>
+        Context.IsSystemAdmin
+            ? _companyIds
+            : Context.CompanyId is { } mine ? [mine] : [];
 
     private static readonly SchOption[] StatusOptions =
     [
@@ -242,7 +252,7 @@ public partial class RequestManage : IDisposable
 
         _seeded = true;
 
-        _companyId = kept.CompanyId;
+        _companyIds = kept.CompanyIds;
         _requesterId = kept.RequesterId;
         _statuses = kept.Statuses;
         _adminId = kept.AdminId;
@@ -273,7 +283,7 @@ public partial class RequestManage : IDisposable
 
         if (!Context.IsSystemAdmin)
         {
-            _companyId = Context.CompanyId;
+            _companyIds = Context.CompanyId is { } mine ? [mine] : [];
         }
 
         // 고객이면 요청자를 나로 고정하고 「처리 중인 것만」을 끈다. 가르는 것은 관리자 여부(IsAdmin) 하나다.
@@ -313,7 +323,7 @@ public partial class RequestManage : IDisposable
     /// 프리렌더에서도 불리며 그때는 빈 것을 맡긴다.</summary>
     public void Dispose() =>
         Screen.Set(StateKey, new Kept(
-            _companyId, _requesterId, _statuses, _adminId, _keyword, _onlyOpen,
+            _companyIds, _requesterId, _statuses, _adminId, _keyword, _onlyOpen,
             _basis, _from, _to,
             _rows, _total, _selected?.Id, _take, _batches));
 
@@ -347,7 +357,7 @@ public partial class RequestManage : IDisposable
         _from = from;
         _to = to;
         _basis = basis ?? RequestedBasis;
-        _companyId = string.IsNullOrWhiteSpace(CompanyQuery) ? null : CompanyQuery;
+        _companyIds = ParseCompanies(CompanyQuery);
         _adminId = string.IsNullOrWhiteSpace(AdminQuery) ? null : AdminQuery;
 
         // 「처리 중인 것만」은 적어 보냈을 때만 건드린다(안 적었으면 기본값이 그대로다).
@@ -503,10 +513,15 @@ public partial class RequestManage : IDisposable
             query["adminId"] = _adminId;
         }
 
-        var companyId = Context.IsSystemAdmin ? _companyId : Context.CompanyId;
-        if (!string.IsNullOrWhiteSpace(companyId))
+        // 여러 값의 구분자는 상태와 같이 | 다.
+        var companyIds = SearchCompanyIds;
+        if (companyIds.Count == 1)
         {
-            query["customer.companyId"] = companyId;
+            query["customer.companyId"] = companyIds[0];
+        }
+        else if (companyIds.Count > 1)
+        {
+            query["customer.companyId_in"] = string.Join("|", companyIds);
         }
 
         // 잘렸다는 말은 여기서 하지 않는다 — 남은 것이 있다는 말과 받는 길은 목록 아래 단추(Rest · ReadMoreAsync)가 든다.
@@ -556,6 +571,18 @@ public partial class RequestManage : IDisposable
     /// <summary>서버가 읽는 시각 글자. 끝의 Z 가 있어야 한다 — 없으면 시간대 없는 값이라 timestamptz 칸에 못 써서 질의가 터진다.</summary>
     private static string Iso(DateTime at) =>
         at.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ", CultureInfo.InvariantCulture);
+
+    private Task OnCompaniesChangedAsync(IEnumerable<string> picked)
+    {
+        _companyIds = [.. picked];
+        return ReloadAsync();
+    }
+
+    /// <summary>주소의 회사 글자를 푼다. | 나 쉼표로 이은 여럿도 받는다(현황판은 하나를 싣는다).</summary>
+    private static IReadOnlyList<string> ParseCompanies(string? raw) =>
+        string.IsNullOrWhiteSpace(raw)
+            ? []
+            : [.. raw.Split(['|', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct()];
 
     private Task OnStatusesChangedAsync(IEnumerable<string> picked)
     {
