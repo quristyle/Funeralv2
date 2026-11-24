@@ -1250,12 +1250,14 @@
 /* 그림이 2rem 우표만 해서 알아볼 수 없었다. 높이는 그림이 아니라 줄(`td`)에 준다 — 그림에 주면 줄이 들쭉날쭉하다.
    그 높이가 두 줄을 내주므로 제목 칸이 제목 위에 상태·요청자·접수·경과를 얹는다. `CssClass` 값은 `DxGrid` 뿌리로 흘러가 `.commgrd` 가 아니라 표 자신에 붙는다. */
 
-.hd-manage-grid .dxbl-grid-table > tbody > tr > td {
+/* 자료 줄(`data-visible-index`)에만 건다. 줄이 판보다 적으면 DevExpress 가 남는 자리를 채우는 빈 줄(`.dxbl-grid-empty-row`)을 세우는데,
+   거기에 80px 가 걸리면 표가 넘쳐 구르기로 바뀌고 → 빈 줄이 걷혀 다시 들어맞고 → 또 세우기를 매 프레임 되풀이해 세로 막대가 깜박인다(남는 자리가 0~80px 일 때). */
+.hd-manage-grid .dxbl-grid-table > tbody > tr[data-visible-index] > td {
   height: 80px;
 }
 
 /* 「그림」 칸만 여백을 걷는다. DevExpress 가 `td` 여백을 자릿수로 그려 우리 선택자로는 못 이긴다. 테마가 다시 잡는 자리가 있어 `!important` 로 못 박는다. */
-.hd-manage-grid .dxbl-grid-table > tbody > tr > td:has(> .hd-row-thumb) {
+.hd-manage-grid .dxbl-grid-table > tbody > tr[data-visible-index] > td:has(> .hd-row-thumb) {
   padding: 0 !important;
 }
 
