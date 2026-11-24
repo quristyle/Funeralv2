@@ -8,10 +8,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>내 요청글의 댓글·내 댓글의 답글을 당사자에게 앱 푸시와 이메일로 알린다. 푸시는 알림 서비스로 보낸다(헬프데스크 자체 구독표는 쓰지 않는다).
+/// <summary>내 요청글의 댓글·내 댓글의 답글을 당사자에게 앱 푸시와 이메일로 알리고, 시스템 관리자에게는 모든 댓글을 앱 푸시로 알린다. 푸시는 알림 서비스로 보낸다(헬프데스크 자체 구독표는 쓰지 않는다).
 /// 자기 글에 자기가 단 답글도 보낸다 — 한 사람이 글쓴이와 관리자를 겸하는 회사라서. 끄는 자리는 알림관리 정책과 본인 설정이다. 알림이 실패해도 댓글 저장은 성공으로 둔다.</summary>
 public interface ICommentNotifier {
-  /// <summary>댓글 하나를 알린다. 당사자를 포털 계정으로 풀지 못하면 아무것도 하지 않는다. actorLoginId 는 받는 사람이 아니라 알림 아이콘용이다.</summary>
+  /// <summary>댓글 하나를 알린다. 당사자를 포털 계정으로 풀지 못해도 시스템 관리자 몫은 나간다. actorLoginId 는 받는 사람이 아니라 알림 아이콘용이다.</summary>
   Task NotifyAsync(
       ImprovementComment comment, ImprovementRequest request,
       string authorName, string? actorLoginId, CancellationToken ct = default);
@@ -24,6 +24,9 @@ public sealed class CommentNotifier : ICommentNotifier {
 
   /// <summary>알림·메일 본문에 싣는 글자 수 상한. 알림창은 어차피 더 못 보여 준다.</summary>
   private const int PreviewLength = 120;
+
+  /// <summary>모든 댓글을 받는 역할.</summary>
+  private const string SystemAdminRole = "SYSTEM_ADMINISTRATOR";
 
   private readonly AppDbContext _db;
   private readonly IRequestOwnerResolver _owners;
@@ -81,10 +84,6 @@ public sealed class CommentNotifier : ICommentNotifier {
           request.Id, request.CustomerId, request.CreatedBy);
     }
 
-    if (string.IsNullOrWhiteSpace(parentAuthorLoginId) && string.IsNullOrWhiteSpace(ownerLoginId)) {
-      return;
-    }
-
     // 3. 부모 댓글 작성자에게 답글 알림 발송
     if (!string.IsNullOrWhiteSpace(parentAuthorLoginId)) {
       await SendPushAsync(request, parentAuthorLoginId, authorName, preview, url, actorLoginId, isReply: true, ct);
@@ -97,6 +96,42 @@ public sealed class CommentNotifier : ICommentNotifier {
       await SendPushAsync(request, ownerLoginId, authorName, preview, url, actorLoginId, isReply: false, ct);
       await SendEmailAsync(request, ownerLoginId, authorName, comment, url, isReply: false, ct);
     }
+
+    // 5. 시스템 관리자는 당사자가 아니어도 모든 댓글을 앱푸시로 받는다(자기가 단 댓글도). 위에서 이미 받은 사람은 뺀다.
+    var alreadyNotified = new[] { parentAuthorLoginId, ownerLoginId }
+        .Where(id => !string.IsNullOrWhiteSpace(id))
+        .Select(id => id!)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    await SendAdminPushAsync(
+        request, authorName, preview, url, actorLoginId, isReply: parentComment != null, alreadyNotified, ct);
+  }
+
+  /// <summary>시스템 관리자 전원에게 앱 푸시 한 통. 역할은 알림 서비스가 사람으로 편다.</summary>
+  private async Task SendAdminPushAsync(
+      ImprovementRequest request, string authorName, string preview, string url,
+      string? actorLoginId, bool isReply, string[] excludeLoginIds, CancellationToken ct) {
+
+    var label = isReply ? "답글" : "댓글";
+
+    var payload = new {
+      roles = new[] { SystemAdminRole },
+      excludeOwnerKeys = excludeLoginIds,
+
+      message = new {
+        title = $"{label} - {authorName}",
+        body = preview,
+        url,
+        iconOwnerKey = actorLoginId,
+        tag = $"helpdesk-comment-{request.Id}",
+        category = PushCategories.HelpDeskComment,
+        eventCode = NotificationEvents.HelpDeskComment
+      }
+    };
+
+    await _gateway.PostAsync(
+        "/notifications/push", payload, CallerId, $"{label} 앱푸시(시스템관리자)", $"요청 {request.Id} -> {SystemAdminRole}", ct);
   }
 
   /// <summary>앱 푸시 한 통. 알림 서비스가 받는 사람의 기기를 찾아 보낸다.</summary>
