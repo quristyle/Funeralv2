@@ -23,9 +23,6 @@
 
 @* 폼은 화면 높이에 맞고, 늘었다 줄었다 하는 것은 본문 편집기 하나다. 단추 줄은 화면 아래에 선다. 치수는 전부 helpdesk.css 의 .hd-form--wide 가 정한다. *@
 
-@* 도구줄이 갈리는 경계 — CSS 의 휴대폰 갈래와 같은 767px 여야 한다. *@
-<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChangedAsync" />
-
 <div class="hd-form hd-form--wide">
     @* 제목 칸에도 이름표를 단다 — 쓰던 글을 적는 JS 가 이 이름으로 안쪽 input 을 찾는다. C# 이 아는 제목은 초점을 떼기 전까지 빈 값이라, 적어 둔 값은 화면에서 직접 읽는다. *@
     @* 좁은 화면에서는 이름표를 걷고 같은 말을 칸 안의 NullText 로 옮긴다(390px 에서 두 줄이 본문 편집기를 밀어낸다). NullText 는 넓은 화면에서도 둔다 — 감추는 일은 CSS 한 곳에서만 한다. *@
@@ -36,8 +33,8 @@
     <div class="hd-field hd-content-field">
 
         @* 값을 파라미터로 되받지 않는다 — 편집기가 알려 주는 것은 입력 뒤 InputDelay(500ms) 다. 등록할 때 FlushContentAsync 로 직접 묻는다. *@
-        @* @key 는 _isPhone 과 _editorKey 의 조합이다. 폭 경계를 넘거나 글을 되살리면 편집기를 통째로 다시 세운다 — DxHtmlEditor 는 Markup 변경만으로는 따라오지 않는다. *@
-        <DxHtmlEditor @key="@($"{_isPhone}_{_editorKey}")"
+        @* 글을 되살리거나 지우면 편집기를 통째로 다시 세운다(@key) — DxHtmlEditor 는 Markup 변경만으로는 따라오지 않는다. 도구줄은 폭과 상관없이 한 벌이라 폭으로는 다시 세우지 않는다. *@
+        <DxHtmlEditor @key="@_editorKey"
                       Markup="@_content"
                       MarkupChanged="@(v => _content = v ?? string.Empty)"
                       BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"

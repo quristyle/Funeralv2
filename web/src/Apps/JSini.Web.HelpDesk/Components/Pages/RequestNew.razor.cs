@@ -15,7 +15,6 @@ namespace JSini.Web.HelpDesk.Components.Pages;
 public partial class RequestNew
 {
     [Inject] private HelpDeskApi Api { get; set; } = default!;
-    [Inject] private HelpDeskContext Context { get; set; } = default!;
     [Inject] private ContentImages Images { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -36,9 +35,10 @@ public partial class RequestNew
     /// <summary>도구줄 「그림」 단추의 이름표. JS 가 이 이름으로 알아본다 — 좁은 화면에서는 넘침 메뉴로 옮겨 가 자리로는 찾을 수 없다.</summary>
     private const string PictureButtonClass = "hd-pick-image";
 
-    /// <summary>휴대폰 도구줄에 세우는 명령 아홉. 차례가 곧 화면의 차례다.
-    /// 글꼴·색·첨자·표·맞춤은 뺐다 — 이 화면의 글은 서식이 아니라 캡처와 몇 줄이다.</summary>
-    private static readonly string[] PhoneToolbarItems =
+    /// <summary>도구줄에 세우는 명령 아홉. 폭과 상관없이 이것뿐이고 차례가 곧 화면의 차례다.
+    /// 글꼴·색·첨자·표·맞춤은 뺐다 — 이 화면의 글은 서식이 아니라 캡처와 몇 줄이다.
+    /// 기본 도구줄(묶음 여섯 · 드롭다운 열다섯)은 그림 묶음이 300KB 를 넘어 화면이 서기까지 브라우저가 1초 가까이 멎었다.</summary>
+    private static readonly string[] ToolbarItems =
     [
         HtmlEditorToolbarItemNames.Undo,
         HtmlEditorToolbarItemNames.Redo,
@@ -80,7 +80,7 @@ public partial class RequestNew
     private static readonly TimeSpan BindWait = TimeSpan.FromMilliseconds(250);
 
     /// <summary>편집기 한 벌에만 붙는 이름. <c>@key</c> 와 같은 값으로 짓는다.</summary>
-    private string EditorInstanceClass => $"hd-content-editor--{(_isPhone ? "p" : "w")}{_editorKey}";
+    private string EditorInstanceClass => $"hd-content-editor--{_editorKey}";
 
     /// <summary>편집기를 다시 세우는 열쇠. 되살리기나 지우고 새로 쓰기 때 바꾼다.</summary>
     private int _editorKey;
@@ -111,56 +111,27 @@ public partial class RequestNew
     /// 모르고 믿는 편이 아예 없는 것보다 나쁘다.</summary>
     private bool _draftBlocked;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await Context.LoadIdentityAsync();
-
-    }
-
-    /// <summary>도구줄을 우리 것으로 손본다 — 한국어 이름표 · 「그림」 단추 이름표 · 휴대폰 전용 도구줄.
-    /// 휴대폰에서는 접히는 묶음을 없애고 바로 눌리는 아홉 단추 묶음 하나만 세운다(넘침 단추가 안 생기는 수). DevExpress 드롭다운은 포털 안에서 열리지 않는다.</summary>
+    /// <summary>도구줄을 우리 것으로 손본다 — 기본 묶음을 걷고 아홉 단추 묶음 하나만 세운 뒤 한국어 이름표와 「그림」 단추 이름표를 단다.
+    /// 감추기(GetVisible)가 아니라 걷는다 — 감춘 묶음도 그림 묶음에 실려 나간다. 넘침 단추가 안 생기는 수라 DevExpress 드롭다운(포털 안에서 안 열린다)도 없다.</summary>
     private void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar)
     {
-        // 기본 묶음 전부 — 넓은 화면에서만 선다.
-        for (var g = 0; g < toolbar.Groups.Count; g++)
+        toolbar.Groups.Clear();
+
+        var group = toolbar.Groups.AddCustomGroup();
+
+        foreach (var name in ToolbarItems)
         {
-            toolbar.Groups[g].GetVisible = () => !_isPhone;
-        }
+            var item = group.Items.Add(name);
 
-        // 휴대폰 묶음. 표준 명령을 이름으로 담는다 — 아이콘·활성 상태·실행취소 이력이 편집기 것 그대로 따라온다.
-        var phone = toolbar.Groups.AddCustomGroup();
-        phone.GetVisible = () => _isPhone;
-
-        DevExpress.Blazor.Office.IBarItem? phonePicture = null;
-
-        foreach (var name in PhoneToolbarItems)
-        {
-            var item = phone.Items.Add(name);
-
+            // JS 가 이 이름으로 누름을 가로챈다. 빠뜨리면 편집기 제 판이 열려 사진이 base64 로 박힌다.
             if (name == HtmlEditorToolbarItemNames.ShowInsertPictureDialog)
             {
-                phonePicture = item;
+                item.CssClass = PictureButtonClass;
             }
         }
 
-        // 한국어 이름표는 맨 나중에 입힌다 — 휴대폰 단추도 함께 훑어야 하고 이 칸이 모든 칸을 돈다.
-        // CssClass 는 그 뒤에 적어야 남는다.
+        // 한국어 이름표가 CssClass 를 덮지 않는다 — Text·Tooltip 만 적는다.
         HtmlEditorKorean.Apply(toolbar);
-
-        // 「그림」은 기본 묶음과 휴대폰 묶음 두 자리에 있고 둘 다 같은 이름을 달아야 한다.
-        // JS 가 이름으로 누름을 가로채므로 한쪽을 빠뜨리면 편집기 제 판이 열려 사진이 base64 로 박힌다.
-        var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
-            ?.Items[HtmlEditorToolbarItemNames.ShowInsertPictureDialog];
-
-        if (picture is not null)
-        {
-            picture.CssClass = PictureButtonClass;
-        }
-
-        if (phonePicture is not null)
-        {
-            phonePicture.CssClass = PictureButtonClass;
-        }
     }
 
     /// <summary>도구줄을 손보는 대리자. 한 번 만들어 들고 있는다 — @CustomizeEditorToolbar 로 적으면 그릴 때마다 새 대리자가 되어 도구줄을 다시 세운다.</summary>
@@ -169,32 +140,8 @@ public partial class RequestNew
     private Action<DevExpress.Blazor.Office.IToolbar> CustomizeToolbar =>
         _customizeToolbar ??= CustomizeEditorToolbar;
 
-    /// <summary>휴대폰 폭인가(≤767px). DxLayoutBreakpoint 가 채운다 — DeviceSize.XSmall(576px)을 쓰면 helpdesk.css 의 휴대폰 갈래와 어긋난다.</summary>
-    private bool _isPhone;
-
-    /// <summary>폭이 경계를 넘나들었다. 편집기를 다시 세운다(@key) — GetVisible 은 도구줄이 다시 그려질 때만 다시 읽혀 그대로 두면 접힌 묶음이 남는다.
-    /// 다시 세우기 전에 글을 걷고(FlushContentAsync), 붙여넣기·임시 보관 걸이를 푼다 — 새 편집기에는 안 걸려 있어 다시 걸리지 않으면 그림이 base64 로 박힌다.</summary>
-    private async Task OnPhoneChangedAsync(bool isPhone)
-    {
-        if (_isPhone == isPhone)
-        {
-            return;
-        }
-
-        // 빈 것으로는 덮지 않는다 — 되살린 글이 얹히기 전에 폭이 갈리면 빈 칸을 읽어 그 글을 지운다.
-        await FlushContentAsync(keepIfBlank: true);
-
-        _isPhone = isPhone;
-
-        // 새 글칸에는 아무것도 안 걸려 있으니 다시 건다.
-        _bound = false;
-        _draftWatched = false;
-
-        StateHasChanged();
-    }
-
     /// <summary>편집기에 붙여넣기 처리기를 건다. 걸릴 때까지 그리기마다 다시 보고 걸리면 그만 본다.
-    /// 연결이 없어도 쓸 수 있으므로 Context.CanUse 로 돌려보내지 않는다(고객 줄은 서버가 첫 글에 만든다).</summary>
+    /// 헬프데스크 신원은 묻지 않는다 — 고객 줄은 서버가 첫 글에 만들고, 임시본 열쇠는 로그인 이름으로 짓는다.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // 적어 둔 것부터 읽는다 — 얹으면 화면을 한 번 더 그려야 들어가므로 얹는 일은 다음 차례로 미룬다.
