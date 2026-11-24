@@ -35,6 +35,19 @@ public sealed class ScheduleNotePopupTests
         Assert.Equal("AI 일정 메모", icon.Title);
         Assert.Equal("jsini-icon-calendar", icon.Icon);
         Assert.True(icon.DefaultEnabled);
+        Assert.Equal("projmng.proj.scheduler", icon.RouteKey);
+        Assert.Equal("/projmng/proj/scheduler", icon.Path);
+    }
+
+    [Fact]
+    public void schedule_note_아이콘은_일정표_권한이_있어야_보인다()
+    {
+        var code = Read("web", "src", "Shared", "JSini.Web.Components", "Layout", "HeaderTools.razor.cs");
+        var manager = Read("web", "src", "Shared", "JSini.Web.Components", "Layout", "HeaderIconManager.cs");
+
+        Assert.Contains("HasScheduleNotePermission && HeaderIcons.IsIconEnabled(\"schedule_note\")", code, StringComparison.Ordinal);
+        Assert.Contains("\"/projmng/proj/scheduler\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("IconKey == \"schedule_note\"", manager, StringComparison.Ordinal);
     }
 
     [Fact]

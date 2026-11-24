@@ -22,7 +22,7 @@
                   Click="@OpenAsk" />
     }
 
-    @* AI 일정 메모 — 상단에서 항상 접근 가능한 공통 팝업 단추 *@
+    @* AI 일정 메모 — 프로젝트 일정표(/projmng/proj/scheduler)를 쓸 수 있는 사람에게만 보인다. *@
     @if (CanShowScheduleNote)
     {
         <DxButton RenderStyle="ButtonRenderStyle.Link"

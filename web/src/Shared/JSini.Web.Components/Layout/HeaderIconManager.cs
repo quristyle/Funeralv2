@@ -29,7 +29,7 @@ public sealed class HeaderIconManager : IDisposable
         new("quick_ask", "quick_ask", "빠른 지시", "jsini-icon-bolt", "projmng.ai.ask", "/projmng/ai/ask", true, 1, "AI 에게 한 줄 보내기 (서랍 또는 화면)"),
         new("ai_chat", "ai_chat", "AI 대화", "jsini-icon-robot", "site.ai.chat", "/ai/chat", true, 2, "AI 대화 서랍 열기"),
         new("ai_assistant", "ai_assistant", "업무 비서", "jsini-icon-briefcase", "admin.ai.assistant", "/admin/ai/assistant", true, 3, "업무 비서 화면 열기"),
-        new("schedule_note", "schedule_note", "AI 일정 메모", "jsini-icon-calendar", "projmng.proj.schedule-note", "/projmng/proj/schedule-note", true, 4, "AI 일정 메모 팝업 열기"),
+        new("schedule_note", "schedule_note", "AI 일정 메모", "jsini-icon-calendar", "projmng.proj.scheduler", "/projmng/proj/scheduler", true, 4, "AI 일정 메모 팝업 열기"),
         new("note", "note", "쪽지", "jsini-icon-mail", "admin.note.write", "/admin/note/write", true, 5, "쪽지 쓰기 및 안 읽은 쪽지 확인"),
         new("notification", "notification", "알림", "jsini-icon-bell", "admin.push.history", "/system/push/history", true, 6, "알림함 서랍 열기"),
         new("favorite", "favorite", "즐겨찾기", "jsini-icon-star", null, null, true, 7, "현재 화면 즐겨찾기 추가/해제"),
@@ -116,11 +116,6 @@ public sealed class HeaderIconManager : IDisposable
         }
 
         if (icon.IconKey == "ai_chat" && (perm.CanView("/ai/chat") || perm.CanView("/site/ai/chat")))
-        {
-            return true;
-        }
-
-        if (icon.IconKey == "schedule_note")
         {
             return true;
         }

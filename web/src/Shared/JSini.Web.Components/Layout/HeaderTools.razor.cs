@@ -83,8 +83,17 @@ public partial class HeaderTools
     /// <summary>빠른 지시 단추를 그릴 수 있나. 메뉴 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
     private bool CanShowAsk => HasAskPermission && HeaderIcons.IsIconEnabled("quick_ask");
 
-    /// <summary>AI 일정 메모 단추를 그릴 수 있나. 레이아웃 상단에 항상 접근 가능한 아이콘이며, 환경설정에서 켜져 있어야 한다.</summary>
-    private bool CanShowScheduleNote => HeaderIcons.IsIconEnabled("schedule_note");
+    /// <summary>AI 일정 메모가 저장하는 곳이 일정표(dev_wbs)라, 그 화면을 쓸 수 있는 사람에게만 단추를 세운다.</summary>
+    private const string SchedulerRouteKey = "projmng.proj.scheduler";
+
+    private const string SchedulerPath = "/projmng/proj/scheduler";
+
+    /// <summary>프로젝트 일정표 메뉴 사용 권한이 있나.</summary>
+    private bool HasScheduleNotePermission =>
+        MenuLookup.Find(Menus.VisibleMenus, SchedulerRouteKey, SchedulerPath) != null || Permissions.CanView(SchedulerPath);
+
+    /// <summary>AI 일정 메모 단추를 그릴 수 있나. 일정표 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
+    private bool CanShowScheduleNote => HasScheduleNotePermission && HeaderIcons.IsIconEnabled("schedule_note");
 
     /// <summary>쪽지 단추를 그릴 수 있나. 메뉴 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
     private bool CanShowNote => (MenuLookup.Find(Menus.VisibleMenus, "admin.note.write", "/admin/note/write") != null || Permissions.CanView("/admin/note/write"))
@@ -129,6 +138,11 @@ public partial class HeaderTools
     /// <summary>AI 일정 메모 단추를 눌렀다. 공통 팝업을 연다.</summary>
     private void OpenScheduleNote()
     {
+        if (!HasScheduleNotePermission)
+        {
+            return;
+        }
+
         UserDrawer.Close();
         ScheduleNote.Toggle();
     }
