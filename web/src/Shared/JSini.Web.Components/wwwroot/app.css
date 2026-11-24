@@ -7705,6 +7705,13 @@ body {
   outline-offset: 2px;
 }
 
+/* DevExpress 편집기는 초점을 바깥 상자의 테두리·그림자로 이미 그린다. 안쪽 입력에 위 테두리가 또 서면 태그 상자처럼 입력이 안쪽으로 들여 앉은 편집기에서 상자 안에 상자가 겹쳐 보인다. */
+.jsini-shell__content .dxbl-text-edit :is(input, textarea):focus-visible,
+.jsini-popup .dxbl-text-edit :is(input, textarea):focus-visible,
+.jsini-gridpopup .dxbl-text-edit :is(input, textarea):focus-visible {
+  outline: none;
+}
+
 /* 공통 업무 부품 마감. 표·페이저·입력·팝업이 같은 표면과 상태색을 공유한다. DevExpress 구조와 기능은 그대로 두고 공용 부품이 그리는 영역만 토큰으로 마감한다. */
 
 :root {
