@@ -35,7 +35,7 @@ public partial class CommentEditor
     private IReadOnlyList<PickedFile> _files = [];
 
     /// <summary>이 칸에 글을 쓰는 중인가 — 도구줄을 세울지 가른다. 한 번 참이 되면 보낼 때까지 거짓으로 안 돌아간다.
-    /// 포커스가 빠질 때 접으면 도구줄을 쓰는 순간 접히므로 그렇게 하지 않는다(글꼴·정렬 목록은 문서 끝에 따로 그려진다).</summary>
+    /// 포커스가 빠질 때 접으면 도구줄을 쓰는 순간 접히므로 그렇게 하지 않는다(링크 창은 문서 끝에 따로 그려진다).</summary>
     private bool _writing;
 
     /// <summary>지금 올리고 있는 그림 수. 0 이 아니면 보내기를 잠근다.</summary>
@@ -86,9 +86,32 @@ public partial class CommentEditor
         }
     }
 
-    /// <summary>칸 안 어딘가가 포커스를 받았다 — 이제 글을 쓰는 중이다. focusin 은 거품처럼 올라와 여기로 다 온다.
-    /// 이미 참이면 다시 그리지 않는다(칠 때마다 그리면 커서가 흔들린다).</summary>
-    private void StartWriting() => _writing = true;
+    /// <summary>칸 안 어딘가가 포커스를 받았다 — 이제 글을 쓰는 중이다. focusin 은 거품처럼 올라와 여기로 다 온다(도구줄 단추를 누를 때마다도).
+    /// 이미 참이면 다시 그리지 않는다 — 처리기가 끝나면 Blazor 가 스스로 그리므로 <see cref="ShouldRender"/> 로 그 한 번을 거른다.</summary>
+    private void StartWriting()
+    {
+        if (_writing)
+        {
+            _skipRender = true;
+            return;
+        }
+
+        _writing = true;
+    }
+
+    /// <summary>이번 한 번은 안 그린다. <see cref="StartWriting"/> 이 세우고 <see cref="ShouldRender"/> 가 내린다.</summary>
+    private bool _skipRender;
+
+    protected override bool ShouldRender()
+    {
+        if (_skipRender)
+        {
+            _skipRender = false;
+            return false;
+        }
+
+        return true;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -140,17 +163,16 @@ public partial class CommentEditor
         }
     }
 
-    /// <summary>도구줄의 「그림」 단추에 이름표를 붙인다. 바꾸는 것은 이름표뿐이고 누를 때 하는 일은 request-editor.js 가 갈아 끼운다(까닭은 RequestNew 의 같은 메서드 참고).</summary>
-    private void MarkPictureButton(DevExpress.Blazor.Office.IToolbar toolbar)
-    {
-        var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
-            ?.Items[HtmlEditorToolbarItemNames.ShowInsertPictureDialog];
+    /// <summary>도구줄을 헬프데스크 한 벌(<see cref="HelpDeskEditorToolbar"/>)로 손본다. 기본 도구줄이면 접어 둔 줄이 처음 펴질 때(칸을 짚을 때)
+    /// 접힘을 다시 셈하느라 DOM 을 6천 번 넘게 고쳐 화면이 0.5초 멎었다(CPU 4배 늦춤 기준). 아홉 단추면 300번대에 멎음이 없다.</summary>
+    private void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar) =>
+        HelpDeskEditorToolbar.Apply(toolbar, PictureButtonClass);
 
-        if (picture is not null)
-        {
-            picture.CssClass = PictureButtonClass;
-        }
-    }
+    /// <summary>도구줄을 손보는 대리자. 한 번 만들어 들고 있는다 — 메서드 이름을 그대로 넘기면 그릴 때마다 새 대리자가 매개변수로 넘어간다.</summary>
+    private Action<DevExpress.Blazor.Office.IToolbar>? _customizeToolbar;
+
+    private Action<DevExpress.Blazor.Office.IToolbar> CustomizeToolbar =>
+        _customizeToolbar ??= CustomizeEditorToolbar;
 
     /// <summary>가로챈 그림이 도착했다. 올리고 그 자리에 img 를 꽂는다. 들어오는 길은 셋(붙여넣기·끌어놓기·그림 단추)이고, 한 장이 실패해도 나머지는 올린다.</summary>
     private async Task OnPastedAsync(InputFileChangeEventArgs e)

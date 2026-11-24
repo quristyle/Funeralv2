@@ -35,22 +35,6 @@ public partial class RequestNew
     /// <summary>도구줄 「그림」 단추의 이름표. JS 가 이 이름으로 알아본다 — 좁은 화면에서는 넘침 메뉴로 옮겨 가 자리로는 찾을 수 없다.</summary>
     private const string PictureButtonClass = "hd-pick-image";
 
-    /// <summary>도구줄에 세우는 명령 아홉. 폭과 상관없이 이것뿐이고 차례가 곧 화면의 차례다.
-    /// 글꼴·색·첨자·표·맞춤은 뺐다 — 이 화면의 글은 서식이 아니라 캡처와 몇 줄이다.
-    /// 기본 도구줄(묶음 여섯 · 드롭다운 열다섯)은 그림 묶음이 300KB 를 넘어 화면이 서기까지 브라우저가 1초 가까이 멎었다.</summary>
-    private static readonly string[] ToolbarItems =
-    [
-        HtmlEditorToolbarItemNames.Undo,
-        HtmlEditorToolbarItemNames.Redo,
-        HtmlEditorToolbarItemNames.FontBold,
-        HtmlEditorToolbarItemNames.FontUnderline,
-        HtmlEditorToolbarItemNames.ClearFormatting,
-        HtmlEditorToolbarItemNames.BulletList,
-        HtmlEditorToolbarItemNames.NumberedList,
-        HtmlEditorToolbarItemNames.ShowHyperlinkDialog,
-        HtmlEditorToolbarItemNames.ShowInsertPictureDialog,
-    ];
-
     /// <summary>본문에 붙이는 그림 한 장의 상한. ContentImages.MaxBytes 하나를 댓글 칸과 같이 쓴다 — 두 벌이면 화면마다 다른 크기에서 막힌다.</summary>
     private const long MaxImageBytes = ContentImages.MaxBytes;
 
@@ -111,28 +95,9 @@ public partial class RequestNew
     /// 모르고 믿는 편이 아예 없는 것보다 나쁘다.</summary>
     private bool _draftBlocked;
 
-    /// <summary>도구줄을 우리 것으로 손본다 — 기본 묶음을 걷고 아홉 단추 묶음 하나만 세운 뒤 한국어 이름표와 「그림」 단추 이름표를 단다.
-    /// 감추기(GetVisible)가 아니라 걷는다 — 감춘 묶음도 그림 묶음에 실려 나간다. 넘침 단추가 안 생기는 수라 DevExpress 드롭다운(포털 안에서 안 열린다)도 없다.</summary>
-    private void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar)
-    {
-        toolbar.Groups.Clear();
-
-        var group = toolbar.Groups.AddCustomGroup();
-
-        foreach (var name in ToolbarItems)
-        {
-            var item = group.Items.Add(name);
-
-            // JS 가 이 이름으로 누름을 가로챈다. 빠뜨리면 편집기 제 판이 열려 사진이 base64 로 박힌다.
-            if (name == HtmlEditorToolbarItemNames.ShowInsertPictureDialog)
-            {
-                item.CssClass = PictureButtonClass;
-            }
-        }
-
-        // 한국어 이름표가 CssClass 를 덮지 않는다 — Text·Tooltip 만 적는다.
-        HtmlEditorKorean.Apply(toolbar);
-    }
+    /// <summary>도구줄을 헬프데스크 한 벌(<see cref="HelpDeskEditorToolbar"/>)로 손본다.</summary>
+    private void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar) =>
+        HelpDeskEditorToolbar.Apply(toolbar, PictureButtonClass);
 
     /// <summary>도구줄을 손보는 대리자. 한 번 만들어 들고 있는다 — @CustomizeEditorToolbar 로 적으면 그릴 때마다 새 대리자가 되어 도구줄을 다시 세운다.</summary>
     private Action<DevExpress.Blazor.Office.IToolbar>? _customizeToolbar;

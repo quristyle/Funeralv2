@@ -4,7 +4,7 @@
 *@
 
 @* 도구줄은 쓰는 동안만 선다. 처음 칸을 짚을 때까지 접어 두고, 한 번 서면 보낼 때까지 접지 않는다.
-   포커스가 빠질 때 접으면 글꼴·정렬 목록(문서 끝에 그려짐)을 고르는 순간 줄이 사라진다. 접고 펴는 것은 클래스 한 글자라 글과 커서는 그대로다. *@
+   포커스가 빠질 때 접으면 링크 창(문서 끝에 그려짐)을 여는 순간 줄이 사라진다. 접고 펴는 것은 클래스 한 글자라 글과 커서는 그대로다. *@
 <div class="hd-cmt-write @(_writing ? "hd-cmt-write--writing" : null)" @onfocusin="StartWriting">
     @if (!string.IsNullOrWhiteSpace(Label))
     {
@@ -14,7 +14,7 @@
     <DxHtmlEditor Markup="@_markup"
                   MarkupChanged="@(v => _markup = v ?? string.Empty)"
                   BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                  CustomizeToolbar="@MarkPictureButton"
+                  CustomizeToolbar="@CustomizeToolbar"
                   CssClass="@EditorClass" />
 
     @* 그림이 지나가는 칸. 화면에는 안 보인다 — request-editor.js 가 파일을 밀어 넣거나 이것을 연다. *@
