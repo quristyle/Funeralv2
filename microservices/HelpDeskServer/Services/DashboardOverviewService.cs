@@ -50,7 +50,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
 
     var query = db.Requests.Where(r => r.Status != ImprovementStatus.Delete);
     if (scoped is not null) {
-      query = query.Where(r => r.Customer != null && r.Customer.CompanyId == scoped);
+      query = query.Where(r => r.CompanyId == scoped);
     }
 
     var rows = await query
@@ -68,7 +68,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
           AdminName = r.Admin == null ? null : r.Admin.UserName,
           CustomerId = r.CustomerId,
           CustomerName = r.Customer == null ? null : r.Customer.UserName,
-          CompanyId = r.Customer == null ? null : r.Customer.CompanyId,
+          CompanyId = r.CompanyId,
         })
         .ToListAsync(ct);
 

@@ -519,15 +519,15 @@ public partial class RequestManage : IDisposable
             query["adminId"] = _adminId;
         }
 
-        // 여러 값의 구분자는 상태와 같이 | 다.
+        // 여러 값의 구분자는 상태와 같이 | 다. 요청자 줄이 아니라 글의 회사로 거른다 — 요청자는 조직도를 따라 회사를 옮긴다.
         var companyIds = SearchCompanyIds;
         if (companyIds.Count == 1)
         {
-            query["customer.companyId"] = companyIds[0];
+            query["companyId"] = companyIds[0];
         }
         else if (companyIds.Count > 1)
         {
-            query["customer.companyId_in"] = string.Join("|", companyIds);
+            query["companyId_in"] = string.Join("|", companyIds);
         }
 
         // 잘렸다는 말은 여기서 하지 않는다 — 남은 것이 있다는 말과 받는 길은 목록 아래 단추(Rest · ReadMoreAsync)가 든다.

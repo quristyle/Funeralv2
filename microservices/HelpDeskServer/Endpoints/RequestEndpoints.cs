@@ -50,7 +50,7 @@ public static class RequestEndpoints {
           .Where(r => r.RequestedAt >= startDate && r.RequestedAt < endDate);
 
       if (!string.IsNullOrWhiteSpace(companyId)) {
-        createdQuery = createdQuery.Where(r => r.Customer != null && r.Customer.CompanyId == companyId);
+        createdQuery = createdQuery.Where(r => r.CompanyId == companyId);
       }
       var createdRequests = await createdQuery.ToListAsync();
 
@@ -61,7 +61,7 @@ public static class RequestEndpoints {
                       (r.UserCompletededAt >= startDate && r.UserCompletededAt < endDate));
 
       if (!string.IsNullOrWhiteSpace(companyId)) {
-        completedQuery = completedQuery.Where(r => r.Customer != null && r.Customer.CompanyId == companyId);
+        completedQuery = completedQuery.Where(r => r.CompanyId == companyId);
       }
       var completedRequests = await completedQuery.ToListAsync();
 
@@ -314,8 +314,8 @@ public static class RequestEndpoints {
           request.Comments = CommentVisibility.Mask(CommentVisibility.Visible(request.Comments));
 
           request.CompanyName =
-              await companies.GetNameAsync(request.Customer?.CompanyId, ct)
-              ?? request.Customer?.CompanyId;
+              await companies.GetNameAsync(request.CompanyId, ct)
+              ?? request.CompanyId;
 
           request.Attachments = await db.Attachments
               .AsNoTracking()
@@ -481,6 +481,8 @@ public static class RequestEndpoints {
         var request = new ImprovementRequest {
           Title = requestDto.Title,
           CustomerId = requestDto.CustomerId,
+          // 요청자 줄은 방금 포털 회사로 맞춰졌다(RequesterProvisioner). 그 값을 글에 박아 둔다.
+          CompanyId = await db.Customers.Where(c => c.Id == requestDto.CustomerId).Select(c => c.CompanyId).FirstOrDefaultAsync(),
           Status = ImprovementStatus.Pending,
           CreatedBy = requestDto.CreatedBy ?? string.Empty,
           MenuContext = requestDto.MenuContext,

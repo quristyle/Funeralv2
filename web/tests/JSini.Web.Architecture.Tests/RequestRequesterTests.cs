@@ -167,6 +167,44 @@ public sealed class RequestRequesterTests
         Assert.Matches(@"AuthUserLinks\.AnyAsync\([\s\S]{0,120}?\)\) return;", code);
     }
 
+    [Fact]
+    public void 조직도에서_회사를_옮기면_요청자는_따라가고_올린_글은_남는다()
+    {
+        var code = StripComments(Provisioner());
+
+        // 빈 줄만 채우면 다른 회사로 옮겨 간 사람이 옛 회사에 남는다 — 새 회사 걸름에서 빠지고 옛 회사 사람에게 보인다.
+        Assert.Contains("string.Equals(customer.CompanyId, me.CompanyId, StringComparison.OrdinalIgnoreCase)) return;", code);
+        Assert.DoesNotContain("IsNullOrWhiteSpace(customer.CompanyId)", code);
+
+        // 무소속으로 뺀 사람(토큰에 회사가 없다)의 줄을 비우면 근거 없이 회사를 지운다.
+        Assert.Contains("if (!me.HasCompany", code);
+
+        // 글을 쓰기 전에도 맞춘다 — 헬프데스크가 열릴 때 부르는 신원 조회에서.
+        var links = StripComments(RazorSource.Read(Path.Combine(
+            RepoRoot(), "microservices", "HelpDeskServer", "Endpoints", "AuthLinkEndpoints.cs")));
+        Assert.Contains("requesters.SyncSelfCompanyAsync(me", links);
+
+        // 글은 쓸 때의 회사를 제 칸에 들고, 회사 걸름은 그 칸을 본다. 요청자 줄의 회사를 빌려 쓰면 옛 글이 새 회사로 넘어간다.
+        var server = Path.Combine(RepoRoot(), "microservices", "HelpDeskServer");
+        var create = StripComments(RazorSource.Read(Path.Combine(server, "Endpoints", "RequestEndpoints.cs")));
+        Assert.Matches(@"new ImprovementRequest \{[\s\S]{0,400}?CompanyId = await db\.Customers", create);
+
+        foreach (var file in Directory.GetFiles(server, "*.cs", SearchOption.AllDirectories)
+                     .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                                 && !f.Contains($"{Path.DirectorySeparatorChar}Migrations{Path.DirectorySeparatorChar}")))
+        {
+            var text = StripComments(File.ReadAllText(file));
+            Assert.False(Regex.IsMatch(text, @"Customer[!?]?\.CompanyId"),
+                $"{Path.GetFileName(file)}: 글의 회사는 r.CompanyId 다 — 요청자 줄의 회사(Customer.CompanyId)를 빌려 쓰지 않는다.");
+        }
+
+        var manage = RazorSource.Read(Path.Combine(SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk",
+            "Components", "Pages", "RequestManage.razor.cs"));
+        Assert.DoesNotContain("\"customer.companyId", manage);
+        Assert.Contains("query[\"companyId\"]", manage);
+    }
+
     /// <summary>주석을 걷어낸다. 사고를 적어 둔 글이 검사에 걸리면 안 된다.</summary>
     private static string StripComments(string code) =>
         Regex.Replace(Regex.Replace(code, @"/\*[\s\S]*?\*/", " "), @"//[^\n]*", " ");

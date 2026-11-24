@@ -50,10 +50,11 @@ public static class AuthLinkEndpoints {
     // uid 가 없으면 예외를 던지면 프론트는 "연결이 없다" 와 "서버가 죽었다" 를
     // 구분할 수 없고, 담당자 권한이 있는 계정조차 신원을 아예 받지 못해 화면이 통째로 잠겼다.
     // 무엇을 할 수 있는지(isAdmin)와 무엇이 없는지(linked=false)를 함께 알려 준다.
-    group.MapGet("/me", (ClaimsPrincipal principal, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
-      await Task.CompletedTask;
-
+    group.MapGet("/me", (ClaimsPrincipal principal, HttpContext http, IRequesterProvisioner requesters) => ApiResponseBuilder.CreateAsync(async () => {
       var me = http.GetHelpdeskPrincipal();
+
+      // 조직도에서 회사를 옮긴 사람의 고객 줄을 헬프데스크를 여는 때 맞춘다(올린 글의 회사는 그대로다).
+      await requesters.SyncSelfCompanyAsync(me, http.AuditUser(), http.RequestAborted);
 
       return new {
         linked = me.IsLinked,

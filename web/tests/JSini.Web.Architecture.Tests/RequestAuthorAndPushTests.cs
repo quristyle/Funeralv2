@@ -79,10 +79,10 @@ public sealed class RequestAuthorAndPushTests
             Endpoint(), "// 요청 상세", "// 특정 요청에 대한 덧글 목록 조회"));
 
         Assert.Contains("IPortalCompanyDirectory companies", code);
-        Assert.Contains("companies.GetNameAsync(request.Customer?.CompanyId", code);
+        Assert.Contains("companies.GetNameAsync(request.CompanyId", code);
 
         // 못 풀면 아이디를 그대로 둔다 — 회사를 통째로 감추지 않는다.
-        Assert.Contains("?? request.Customer?.CompanyId", code);
+        Assert.Contains("?? request.CompanyId", code);
     }
 
     private static string StripComments(string code)

@@ -32,9 +32,9 @@ public static class DashboardEndpoints {
     group.MapGet("/company-stats", (AppDbContext db, IPortalCompanyDirectory companies, CancellationToken ct) =>
         ApiResponseBuilder.CreateAsync(async () => {
       var stats = await db.Requests
-          .Where(r => r.Customer != null && r.Customer.CompanyId != null)
+          .Where(r => r.CompanyId != null)
           // 앞의 Where 가 걸러 냈으므로 null 이 올 수 없다. 컴파일러가 따라가지 못해 ! 로 알린다.
-          .GroupBy(r => r.Customer!.CompanyId!)
+          .GroupBy(r => r.CompanyId!)
           .Select(g => new {
             Id = g.Key,
             LastPendingDate = g.Where(r => r.Status == ImprovementStatus.Pending)
@@ -321,7 +321,7 @@ public static class DashboardEndpoints {
       var companyId = customer.CompanyId;
 
       var stats = await db.Requests
-          .Where(r => r.Customer!.CompanyId == companyId)
+          .Where(r => r.CompanyId == companyId)
           .GroupBy(r => r.Status)
           .Select(g => new { Status = g.Key, Count = g.Count() })
           .ToListAsync();
@@ -359,7 +359,7 @@ public static class DashboardEndpoints {
       var twelveMonthsAgo = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
 
       var monthlyData = await db.Requests
-          .Where(r => r.Customer!.CompanyId == companyId && r.RequestedAt >= twelveMonthsAgo)
+          .Where(r => r.CompanyId == companyId && r.RequestedAt >= twelveMonthsAgo)
           .GroupBy(r => new { r.RequestedAt.Year, r.RequestedAt.Month })
           .Select(g => new {
             Year = g.Key.Year,
@@ -396,8 +396,8 @@ public static class DashboardEndpoints {
           var names = await companies.GetNamesAsync(ct);
 
           var counts = await db.Requests
-              .Where(r => r.Customer != null && r.Customer.CompanyId != null)
-              .GroupBy(r => r.Customer!.CompanyId!)
+              .Where(r => r.CompanyId != null)
+              .GroupBy(r => r.CompanyId!)
               .Select(g => new { CompanyId = g.Key, Count = g.Count() })
               .ToDictionaryAsync(x => x.CompanyId, x => x.Count, ct);
 

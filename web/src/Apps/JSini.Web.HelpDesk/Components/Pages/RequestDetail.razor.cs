@@ -559,6 +559,7 @@ public partial class RequestDetail : IDisposable
     /// <summary>고객사 이름(서버가 푼다). 못 풀었으면 회사 아이디를 보인다.</summary>
     private string CompanyName() =>
         Value("companyName")
+        ?? Value("companyId")
         ?? NestedValue("customer", "companyId")
         ?? "-";
 

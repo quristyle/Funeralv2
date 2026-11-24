@@ -51,6 +51,8 @@ public sealed class ImprovementRequest : HdEntity
     public bool? IsEmergency { get; set; }
     public int? CustomerId { get; set; }
     public Customer? Customer { get; set; }
+    /// <summary>글을 쓸 때의 고객사(포털 회사 아이디). 쓴 사람이 다른 회사로 옮겨 가도 바뀌지 않는다.</summary>
+    public string? CompanyId { get; set; }
     public int? AdminId { get; set; }
     public Admin? Admin { get; set; }
     public int? AssignedAdminId { get; set; }

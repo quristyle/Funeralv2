@@ -45,9 +45,9 @@ public abstract class RequestRowList : ComponentBase
         }
     }
 
-    /// <summary>요청자가 딸린 회사 이름. 서버가 주는 것은 아이디뿐이다.</summary>
+    /// <summary>글을 쓸 때의 회사 이름. 서버가 주는 것은 아이디뿐이다.</summary>
     protected string CompanyName(ImprovementRequest r) =>
-        Context.CompanyName(r.Customer?.CompanyId);
+        Context.CompanyName(r.CompanyId ?? r.Customer?.CompanyId);
 
     /// <summary>접수 시각을 우리 시간으로 적는다. 서버 값은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다.</summary>
     protected static string Requested(ImprovementRequest r) =>

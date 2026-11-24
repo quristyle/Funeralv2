@@ -28,13 +28,13 @@ public static class HelpdeskAccess {
       this HelpdeskPrincipal me, AppDbContext db, ImprovementRequest req, bool allowSameCompany, CancellationToken ct = default) {
     if (me.IsAdmin || me.IsRequestOwner(req)) return;
 
-    if (allowSameCompany && me.HasCompany) {
-      var company = await db.Customers.AsNoTracking()
-          .Where(c => c.Id == req.CustomerId)
-          .Select(c => c.CompanyId)
-          .FirstOrDefaultAsync(ct);
-      if (string.Equals(company, me.CompanyId, StringComparison.OrdinalIgnoreCase)) return;
+    // 같은 회사는 글이 쓰일 때의 회사로 가른다 — 쓴 사람이 다른 회사로 옮겨 가도 글은 옛 회사 사람들 것으로 남는다.
+    if (allowSameCompany && me.HasCompany
+        && string.Equals(req.CompanyId, me.CompanyId, StringComparison.OrdinalIgnoreCase)) {
+      return;
     }
+
+    await Task.CompletedTask;
 
     throw new UnauthorizedAccessException("이 요청을 처리할 권한이 없습니다.");
   }

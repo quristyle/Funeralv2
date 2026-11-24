@@ -728,6 +728,11 @@ namespace HelpDeskServer.Migrations
                         .HasColumnName("adminid")
                         .HasComment("담당 관리자 ID");
 
+                    b.Property<string>("CompanyId")
+                        .HasColumnType("text")
+                        .HasColumnName("companyid")
+                        .HasComment("고객사 — 글을 쓴 사람이 쓸 때 속해 있던 포털 회사 아이디(scom.companies.id). 회사 걸름은 이 칸을 본다.\n            고객 줄의 회사는 조직도를 따라 바뀌므로 그것을 빌려 쓰면 옮겨 간 사람의 옛 글이 새 회사로 함께 넘어간다.");
+
                     b.Property<DateTime?>("CompletededAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completededat")

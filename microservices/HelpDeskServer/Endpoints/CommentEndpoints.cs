@@ -49,9 +49,9 @@ public static class CommentEndpoints {
       if (all == true || !string.IsNullOrEmpty(companyId)) {
         if (me.IsCustomer && me.HasCompany) {
           var scopedCompany = me.CompanyId;
-          query = query.Where(c => db.Requests.Any(r => r.Id == c.RequestId && r.Customer != null && r.Customer.CompanyId == scopedCompany));
+          query = query.Where(c => db.Requests.Any(r => r.Id == c.RequestId && r.CompanyId == scopedCompany));
         } else if (me.IsAdmin && !string.IsNullOrEmpty(companyId)) {
-          query = query.Where(c => db.Requests.Any(r => r.Id == c.RequestId && r.Customer != null && r.Customer.CompanyId == companyId));
+          query = query.Where(c => db.Requests.Any(r => r.Id == c.RequestId && r.CompanyId == companyId));
         }
       } else {
         // 담당자는 다른 사람의 댓글도 지정해서 조회할 수 있다. 연결이 없어도 이 조회는 가능하다 —

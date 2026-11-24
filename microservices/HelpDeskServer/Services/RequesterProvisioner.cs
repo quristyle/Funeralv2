@@ -12,6 +12,9 @@ public interface IRequesterProvisioner {
   /// <param name="auditUser">만들어지는 줄에 남길 작성자</param>
   /// <param name="ct">취소 토큰</param>
   Task<int?> ResolveAsync(HelpdeskPrincipal me, int pickedCustomerId, string auditUser, CancellationToken ct = default);
+
+  /// <summary>연결된 자기 고객 줄의 회사를 지금 포털 회사로 맞춘다. 글을 쓰기 전에도 회사 걸름·같은 회사 알림이 조직도를 따라가게 한다.</summary>
+  Task SyncSelfCompanyAsync(HelpdeskPrincipal me, string auditUser, CancellationToken ct = default);
 }
 
 /// <inheritdoc />
@@ -37,7 +40,7 @@ public class RequesterProvisioner : IRequesterProvisioner {
     // 1. 고객으로 연결된 계정은 언제나 자기 자신이다. 남의 이름으로 쓸 수 없다.
     if (me.IsCustomer && me.HelpdeskUserId is { } linked
         && await _db.Customers.FirstOrDefaultAsync(c => c.Id == linked, ct) is { } self) {
-      await FillCompanyAsync(self, me, auditUser, ct);
+      await SyncCompanyAsync(self, me, auditUser, ct);
       return linked;
     }
 
@@ -52,6 +55,16 @@ public class RequesterProvisioner : IRequesterProvisioner {
 
     // 3. 그 밖에는 **글을 쓴 사람 자신**이 요청자다. 가리킬 줄이 없으면 만든다.
     return await EnsureSelfAsync(me, auditUser, ct);
+  }
+
+  /// <inheritdoc />
+  public async Task SyncSelfCompanyAsync(HelpdeskPrincipal me, string auditUser, CancellationToken ct = default) {
+    if (!me.HasCompany || string.IsNullOrWhiteSpace(me.JsiniUserId)) return;
+    if (!string.Equals(me.LinkedUserType, "customer", StringComparison.OrdinalIgnoreCase) || me.HelpdeskUserId is not { } id) return;
+
+    if (await _db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct) is { } self) {
+      await SyncCompanyAsync(self, me, auditUser, ct);
+    }
   }
 
   /// <summary>포털 계정 자신을 가리키는 고객 줄을 찾고, 없으면 만든다. 찾는 열쇠는 로그인 아이디와 이름이 둘 다</summary>
@@ -90,7 +103,7 @@ public class RequesterProvisioner : IRequesterProvisioner {
     }
 
     else {
-      await FillCompanyAsync(mine, me, auditUser, ct);
+      await SyncCompanyAsync(mine, me, auditUser, ct);
     }
 
     await LinkAsync(loginId, mine.Id, auditUser, ct);
@@ -98,19 +111,22 @@ public class RequesterProvisioner : IRequesterProvisioner {
   }
 
   /// <summary>
-  /// 회사가 빈 고객 줄을 지금 토큰의 포털 회사로 채운다. 계정을 만들고 회사를 나중에 매면 첫 글 때 토큰에 회사가 없어
-  /// 빈 채로 만들어지는데, 그 줄은 회사 걸름에서 통째로 빠져 같은 회사 사람에게도 안 보인다. 이미 있는 회사는 바꾸지 않는다.
+  /// 고객 줄의 회사를 지금 토큰의 포털 회사로 맞춘다. 비어 있던 줄(회사를 나중에 맨 계정)도, 조직도에서 다른 회사로 옮겨 간 사람도 같다 —
+  /// 회사 걸름과 같은 회사 알림이 이 칸을 보므로 옛 회사에 남아 있으면 새 회사 사람에게 안 보이고 옛 회사 사람에게 보인다.
+  /// 이미 올린 글은 제 칸(improvementrequest.companyid)에 쓸 때의 회사를 들고 있어 함께 옮겨 가지 않는다.
+  /// 토큰에 회사가 없으면(무소속으로 뺀 사람·포털 신원이 없는 요청) 근거가 없으므로 그대로 둔다.
   /// </summary>
-  private async Task FillCompanyAsync(Customer customer, HelpdeskPrincipal me, string auditUser, CancellationToken ct) {
-    if (!string.IsNullOrWhiteSpace(customer.CompanyId) || !me.HasCompany) return;
+  private async Task SyncCompanyAsync(Customer customer, HelpdeskPrincipal me, string auditUser, CancellationToken ct) {
+    if (!me.HasCompany || string.Equals(customer.CompanyId, me.CompanyId, StringComparison.OrdinalIgnoreCase)) return;
 
+    var before = customer.CompanyId;
     customer.CompanyId = me.CompanyId;
     customer.ModifiedBy = auditUser;
     customer.ModifiedAt = DateTime.UtcNow;
     await _db.SaveChangesAsync(ct);
 
     _logger.LogInformation(
-        "customer#{Id} 의 빈 회사를 포털 회사 {CompanyId} 로 채웠습니다.", customer.Id, me.CompanyId);
+        "customer#{Id} 의 회사를 포털 회사에 맞췄습니다 — {Before} → {After}.", customer.Id, before ?? "(없음)", me.CompanyId);
   }
 
   /// <summary>다음부터는 신원 해석이 이 줄을 바로 찾도록 연결을 남긴다. 이미 연결이 있으면 손대지 않는다.</summary>

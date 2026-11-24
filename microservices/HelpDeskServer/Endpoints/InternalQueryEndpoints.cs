@@ -99,7 +99,7 @@ public static class InternalQueryEndpoints
                     r.AdminId,
                     AuthorName = r.Customer != null ? r.Customer.UserName : null,
                     AssigneeName = r.Admin != null ? r.Admin.UserName : null,
-                    CompanyId = r.Customer != null ? r.Customer.CompanyId : null,
+                    CompanyId = r.CompanyId,
                     Commented = r.Comments.Any(c => !c.IsDel && (
                         (c.AuthorType.ToLower() == "admin" && adminIds.Contains(c.AuthorId))
                         || (c.AuthorType.ToLower() != "admin" && customerIds.Contains(c.AuthorId)))),
@@ -162,7 +162,7 @@ public static class InternalQueryEndpoints
             var admins = await db.Admins.Where(a => adminIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, ct);
             var customers = await db.Customers.Where(c => customerIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
 
-            var companyName = await companies.GetNameAsync(request.Customer?.CompanyId, ct) ?? request.Customer?.CompanyId;
+            var companyName = await companies.GetNameAsync(request.CompanyId, ct) ?? request.CompanyId;
 
             return Results.Ok(new
             {
