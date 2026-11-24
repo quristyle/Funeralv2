@@ -388,6 +388,23 @@
   padding: 0.2rem 0.7rem;
 }
 
+/* 휴대폰에서 단추 줄을 접은 「처리」 단추. 단추 줄과 같이 오른쪽 끝에 붙는다. */
+.hd-actions-menu {
+  margin-left: auto;
+}
+
+/* 휴대폰에서 목록은 아래에서 올라오는 판으로 선다. 작은 단추 크기를 물려받아 26px 이라 손가락 높이로 키운다. */
+.hd-actions-sheet .dxbl-btn-dropdown-item > .dxbl-btn {
+  min-height: 2.75rem;
+  font-size: 1rem;
+}
+
+/* 펼친 목록의 「삭제」는 빨갛게 — 다른 항목과 색으로도 갈린다. 클래스는 항목 단추에 붙는다. */
+.hd-actions-sheet .dxbl-btn.hd-actions__danger,
+.hd-actions-sheet .dxbl-btn.hd-actions__danger .dxbl-image {
+  color: var(--bs-danger, #dc3545);
+}
+
 /* ── 현황 타일 ───────────────────────────────────────────────────── */
 /* 상태 여섯을 한 줄에 늘어놓고, 좁으면 접히도록 `auto-fit` 을 쓴다. 고정 칸수는 태블릿에서 타일을 자른다. */
 

@@ -10,6 +10,9 @@
 
 <PageTitle>@TabTitle · 헬프데스크</PageTitle>
 
+@* 경계 767px 는 CSS 의 휴대폰 경계와 같아야 한다(요청 처리 목록과 같은 값). *@
+<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+
 <div class="hd-detail">
     @* 돌아갈 자리 · 제목 · 상태 · 단추를 한 줄에 둔다. *@
     <div class="hd-detail__head">
@@ -22,54 +25,96 @@
         {
             <span class="jsini-badge @StatusClass()">@StatusText()</span>
 
-            <div class="hd-actions">
-                @* `Loading` 으로 두 번 눌러 알림이 두 번 나가는 것을 막는다. *@
-                @if (CanHandle)
+            @* 휴대폰에서는 단추 줄이 제목 아래로 몇 줄씩 흘러 본문을 밀어낸다. 단추 하나에 모아 누르면 목록으로 편다. *@
+            @if (_isPhone)
+            {
+                @if (HasAnyAction)
                 {
-                    @if (IsPending)
+                    <DxDropDownButton Text="처리" RenderStyle="ButtonRenderStyle.Primary"
+                                      SizeMode="SizeMode.Small"
+                                      CssClass="hd-actions-menu"
+                                      DropDownCssClass="hd-actions-sheet"
+                                      Enabled="@(!Loading)">
+                        <Items>
+                            @if (CanHandle && IsPending)
+                            {
+                                <DxDropDownButtonItem Text="접수" Click="@AcceptAsync" />
+                            }
+                            @if (CanHandle && IsOpen)
+                            {
+                                <DxDropDownButtonItem Text="완료" Click="@CompleteAsync" />
+                            }
+                            @if (CanClose)
+                            {
+                                <DxDropDownButtonItem Text="종료(최종확인)" Click="@CloseAsync" />
+                                <DxDropDownButtonItem Text="재요청" Click="@ResubmitAsync" />
+                            }
+                            @if (Context.IsSystemAdmin)
+                            {
+                                <DxDropDownButtonItem Text="지시작업으로보내기" Click="@SendToAiTaskAsync" />
+                                @if (CanDeleteRequest)
+                                {
+                                    @* 지우는 것은 맨 아래에 금을 그어 떼어 둔다 — 손가락이 미끄러져 눌리지 않게. *@
+                                    <DxDropDownButtonItem Text="삭제" IconCssClass="jsini-icon-close"
+                                                          CssClass="hd-actions__danger"
+                                                          BeginGroup="true" Click="@DeleteAsync" />
+                                }
+                            }
+                        </Items>
+                    </DxDropDownButton>
+                }
+            }
+            else
+            {
+                <div class="hd-actions">
+                    @* `Loading` 으로 두 번 눌러 알림이 두 번 나가는 것을 막는다. *@
+                    @if (CanHandle)
                     {
-                        <DxButton Text="접수" RenderStyle="ButtonRenderStyle.Primary"
-                                  SizeMode="SizeMode.Small"
-                                  Enabled="@(!Loading)" Click="@AcceptAsync" />
+                        @if (IsPending)
+                        {
+                            <DxButton Text="접수" RenderStyle="ButtonRenderStyle.Primary"
+                                      SizeMode="SizeMode.Small"
+                                      Enabled="@(!Loading)" Click="@AcceptAsync" />
+                        }
+
+                        @if (IsOpen)
+                        {
+                            <DxButton Text="완료" RenderStyle="ButtonRenderStyle.Success"
+                                      SizeMode="SizeMode.Small"
+                                      Enabled="@(!Loading)" Click="@CompleteAsync" />
+                        }
                     }
 
-                    @if (IsOpen)
+                    @* 종료·재요청은 글 주인의 자리다 — 담당자 권한을 보지 않는다. *@
+                    @if (CanClose)
                     {
-                        <DxButton Text="완료" RenderStyle="ButtonRenderStyle.Success"
+                        <DxButton Text="종료(최종확인)" RenderStyle="ButtonRenderStyle.Primary"
                                   SizeMode="SizeMode.Small"
-                                  Enabled="@(!Loading)" Click="@CompleteAsync" />
+                                  Enabled="@(!Loading)" Click="@CloseAsync" />
+
+                        @* 종료와 색을 달리해 끝내려던 사람이 새 글을 여는 일을 막는다. *@
+                        <DxButton Text="재요청" RenderStyle="ButtonRenderStyle.Secondary"
+                                  SizeMode="SizeMode.Small"
+                                  Enabled="@(!Loading)" Click="@ResubmitAsync" />
                     }
-                }
 
-                @* 종료·재요청은 글 주인의 자리다 — 담당자 권한을 보지 않는다. *@
-                @if (CanClose)
-                {
-                    <DxButton Text="종료(최종확인)" RenderStyle="ButtonRenderStyle.Primary"
-                              SizeMode="SizeMode.Small"
-                              Enabled="@(!Loading)" Click="@CloseAsync" />
-
-                    @* 종료와 색을 달리해 끝내려던 사람이 새 글을 여는 일을 막는다. *@
-                    <DxButton Text="재요청" RenderStyle="ButtonRenderStyle.Secondary"
-                              SizeMode="SizeMode.Small"
-                              Enabled="@(!Loading)" Click="@ResubmitAsync" />
-                }
-
-                @if (Context.IsSystemAdmin)
-                {
-                    <DxButton Text="지시작업으로보내기" RenderStyle="ButtonRenderStyle.Info"
-                              SizeMode="SizeMode.Small"
-                              Enabled="@(!Loading)" Click="@SendToAiTaskAsync" />
-                    @if (CanDeleteRequest)
+                    @if (Context.IsSystemAdmin)
                     {
-                        <DxButton RenderStyle="ButtonRenderStyle.Danger"
-                                  RenderStyleMode="ButtonRenderStyleMode.Text"
-                                  IconCssClass="jsini-icon-close"
+                        <DxButton Text="지시작업으로보내기" RenderStyle="ButtonRenderStyle.Info"
                                   SizeMode="SizeMode.Small"
-                                  Title="삭제" aria-label="삭제"
-                                  Enabled="@(!Loading)" Click="@DeleteAsync" />
+                                  Enabled="@(!Loading)" Click="@SendToAiTaskAsync" />
+                        @if (CanDeleteRequest)
+                        {
+                            <DxButton RenderStyle="ButtonRenderStyle.Danger"
+                                      RenderStyleMode="ButtonRenderStyleMode.Text"
+                                      IconCssClass="jsini-icon-close"
+                                      SizeMode="SizeMode.Small"
+                                      Title="삭제" aria-label="삭제"
+                                      Enabled="@(!Loading)" Click="@DeleteAsync" />
+                        }
                     }
-                }
-            </div>
+                </div>
+            }
         }
     </div>
 

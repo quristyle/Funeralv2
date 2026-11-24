@@ -64,6 +64,15 @@ public partial class RequestDetail : IDisposable
     private bool CanWrite => !IsFinished && Context.IsLinked && Permissions.Can(MenuPath, MenuAction.Create);
 
     /// <summary>시스템관리자이고 아직 안 끝난 요청이면 지울 수 있다.</summary>
+    /// <summary>휴대폰인가. 단추 줄을 「처리」 하나로 접는 데 쓴다 — Blazor Server 는 브라우저 폭을 모른다.</summary>
+    private bool _isPhone;
+
+    private void OnPhoneChanged(bool active) => _isPhone = active;
+
+    /// <summary>누를 단추가 하나라도 있나. 없으면 휴대폰의 「처리」 단추도 세우지 않는다.</summary>
+    private bool HasAnyAction =>
+        (CanHandle && (IsPending || IsOpen)) || CanClose || Context.IsSystemAdmin;
+
     private bool CanDeleteRequest => Context.IsSystemAdmin && !IsFinished;
 
     /// <summary>접수·완료를 누를 수 있는가. 연결이 아니라 담당자 여부를 본다 — 담당자 줄은 서버가 접수할 때 만든다.</summary>
