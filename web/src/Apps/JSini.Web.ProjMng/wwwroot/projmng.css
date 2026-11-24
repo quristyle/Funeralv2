@@ -4880,9 +4880,10 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     pointer-events: none;
   }
 
-  /* 공통 조회판의 떠 있는 라벨(tabler.css)은 칸 바깥으로 반 줄 올린다. 이 기둥은 칸에 윗여백을 두므로 그 자리(0)에 남긴다. */
+  /* 공통 조회판의 떠 있는 라벨(tabler.css)은 칸 바깥으로 반 줄 올린다. 이 기둥은 칸에 윗여백을 두므로 그 자리(0)에 남긴다. 바탕은 공통과 같이 깔지 않는다(입력칸을 가린다). */
   .pm-gc__rail .commsch .commsch__item:has(.dxbl-text-edit) > .commsch__label {
     top: 0;
+    background: transparent;
   }
 
   .pm-gc .pm-gc__rail .commsch__item > :last-child,

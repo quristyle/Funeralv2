@@ -704,7 +704,7 @@ preview.tabler.io 의 생김새를 옮겼다. Fluent · Classic · Bootswatch �
 - **폼 라벨은 칸 위에 둔다**(Tabler `.form-label`). 떠 있는 라벨(`float-label.js`)은 걷었다.
   `DxFormLayout` 은 기본이 가로 배치라 tabler.css 가 세로로 세운다 — 선택자 자릿수를
   DevExpress 규칙(`.dxbl-fl .dxbl-fl-item.dxbl-fl-item-horizontal`)과 **같게** 적어야 이긴다.
-- **조회 판(`CommSch`)의 라벨은 입력칸 왼쪽 위 테두리에 얹는다**(작은 글씨 · 옅은 색).
+- **조회 판(`CommSch`)의 라벨은 입력칸 왼쪽 위 테두리에 얹는다**(작은 글씨 · 옅은 색 · **바탕 없이** — 바탕을 깔면 입력칸을 가린다).
   업무 화면은 쪽이 구르면 안 되므로 판이 먹는 자리가 **그대로 표에서 빠진다** —
   위에 얹은 한 줄은 높이를(조건 판 셋을 재 보니 100px → 76px 차이), 칸 앞에 붙인
   라벨은 폭을 먹는다. 테두리에 겹치면 둘 다 안 먹는다. 라벨은 칸 바깥으로 반 줄
