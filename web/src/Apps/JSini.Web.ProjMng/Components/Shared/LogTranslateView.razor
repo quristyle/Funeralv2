@@ -13,8 +13,14 @@
                     IsActive="_phone" IsActiveChanged="@OnPhoneChangedAsync" />
 
 <div class="pm-xlat">
-        @* 머리띠. 줄바꿈 단추는 여기 없다 — 편집기 칸 이름표의 EditorActions 로 옮겼다(다른 편집기와 손짓을 맞춘다). *@
-    <div class="pm-xlat__bar">
+        @* 머리띠. 줄바꿈 단추는 여기 없다 — 편집기 칸 이름표의 EditorActions 로 옮겼다(다른 편집기와 손짓을 맞춘다).
+           Lead 를 받으면 부모의 머리말까지 이 한 줄에 싣고 「…」 메뉴도 끝에 붙인다 — 세 줄로 쌓이면 세로 자리만 먹는다. *@
+    <div class="pm-xlat__bar @(Lead is null ? null : "pm-xlat__bar--lead")">
+        @if (Lead is not null)
+        {
+            <span class="pm-xlat__lead">@Lead</span>
+        }
+
             @* 옮긴 줄을 모두 원문으로 되돌린다. 번역을 시키는 자리가 아니다. *@
         @if (_state.DoneLines.Count > 0)
         {
@@ -25,20 +31,24 @@
         }
 
         <span class="pm-xlat__stat">@StatusText</span>
+
+        @if (Lead is not null)
+        {
+            <span class="pm-xlat__head pm-xlat__head--inline">
+                @EditorActionsMenu
+            </span>
+        }
     </div>
 
+    @if (Lead is null)
+    {
         @* 칸 이름표. 칸이 하나라 이름도 하나다. 이름 오른쪽에 EditorActions 「…」 메뉴가 선다. 편집기 안에 띄우지 않는 까닭은 로그가 오른쪽 위 귀퉁이에도 글을 두기 때문이다. *@
-    <div class="pm-xlat__heads">
-        <span class="pm-xlat__head">
-
-            <EditorActions CopyTitle="번역 전체 복사"
-                           Text="@OutText"
-                           WordWrap="@_wrap"
-                           WordWrapChanged="@SetWrapAsync"
-                           LineNumbers="@_lineNumbers"
-                           LineNumbersChanged="@SetLineNumbersAsync" />
-        </span>
-    </div>
+        <div class="pm-xlat__heads">
+            <span class="pm-xlat__head">
+                @EditorActionsMenu
+            </span>
+        </div>
+    }
 
         @* 로그가 설 자리. 넓은 화면은 높이를 여기서 정한다(Monaco 는 부모 높이를 재서 그린다). 휴대폰 목록은 높이를 받지 않고 내용만큼 길어져 쪽이 구른다. *@
     <div class="pm-xlat__editor" style="@EditorStyle">
@@ -105,3 +115,14 @@
         }
     </div>
 </div>
+
+@code {
+    /// <summary>「…」 메뉴. 이름표 줄이든 머리띠든 선 자리만 다르고 같은 것이다.</summary>
+    private RenderFragment EditorActionsMenu =>
+        @<EditorActions CopyTitle="번역 전체 복사"
+                        Text="@OutText"
+                        WordWrap="@_wrap"
+                        WordWrapChanged="@SetWrapAsync"
+                        LineNumbers="@_lineNumbers"
+                        LineNumbersChanged="@SetLineNumbersAsync" />;
+}

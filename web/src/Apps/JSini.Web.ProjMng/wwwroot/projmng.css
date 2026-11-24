@@ -7670,6 +7670,40 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   text-align: right;
 }
 
+/* 머리말을 실은 머리띠 — 「결과 🔊 … 22줄 ⋯」 를 한 줄에 세운다. 위 여백은 다른 머리말 줄(pm-peek__head-row)과 맞춘다. */
+.pm-xlat__bar--lead {
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0;
+}
+
+.pm-xlat__lead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.pm-xlat__lead > .pm-peek__head {
+  margin: 0;
+}
+
+.pm-xlat__bar--lead > .pm-xlat__stat {
+  white-space: nowrap;
+}
+
+/* 이름표 줄의 늘어나는 폭과 안 여백을 걷는다 — 머리띠 끝에 아이콘만 붙는다. */
+.pm-xlat__head--inline {
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+/* 펴진 단추 판이 아래 편집기에 덮이지 않게 한다(이름표 줄과 같은 까닭). */
+.pm-xlat__bar--lead:has(.pm-edact.is-open) {
+  position: relative;
+  z-index: 20;
+}
+
 /* 로그가 설 틀. 넓은 화면은 여기서 높이를 준다 — Monaco 는 부모 높이를 재서 그리므로 없으면 줄이 하나도 안 보인다. 휴대폰 목록은 높이를 안 받는다. */
 .pm-xlat__editor {
   height: 30rem;

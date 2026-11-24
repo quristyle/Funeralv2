@@ -51,6 +51,9 @@ public partial class LogTranslateView
     /// <summary>연속으로 반복되는 로그 구간을 하나로 합쳐 반복 횟수와 함께 한 번만 보인다. 로그 탭에서 켠다.</summary>
     [Parameter] public bool CollapseRepeats { get; set; }
 
+    /// <summary>머리띠 왼쪽에 실을 부모의 머리말(제목·음성 단추 등). 주면 「…」 메뉴도 같은 줄 끝에 붙어 이름표 줄이 사라진다.</summary>
+    [Parameter] public RenderFragment? Lead { get; set; }
+
     /// <summary>옮겨 갈 말. 한국어로 고정이다 — 들어오는 것이 영어 로그라 영어로 돌리면 볼 것이 없다.</summary>
     private const string TargetLang = "ko";
 
