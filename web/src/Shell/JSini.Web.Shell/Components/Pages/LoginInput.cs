@@ -15,6 +15,19 @@ public sealed class LoginInput
     public bool KeepSignedIn { get; set; }
 }
 
+/// <summary>관리자 대리 로그인 창(로고를 두 번 눌러 연다)에 담기는 값. 시스템관리자가 자기 아이디·비밀번호로 승인하고, 적어 낸 대상 사용자로 로그인한다.</summary>
+public sealed class ImpersonateInput
+{
+    [Required(ErrorMessage = "로그인할 사용자 아이디를 입력하세요.")]
+    public string TargetUsername { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "시스템관리자 아이디를 입력하세요.")]
+    public string AdminUsername { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "시스템관리자 비밀번호를 입력하세요.")]
+    public string AdminPassword { get; set; } = string.Empty;
+}
+
 /// <summary>패스키(지문·얼굴) 로그인 폼에 담기는 값. 아이디·비밀번호 폼과 갈라 둔다. 한 폼에 넣으면 그 폼의 [Required] 가 패스키로 들어올 때도 걸려 아이디를 치지 않고 들어오는 길이 막힌다. 정적 SSR 이라 폼 둘을 FormName 으로 가른다.</summary>
 public sealed class PasskeyLoginInput
 {

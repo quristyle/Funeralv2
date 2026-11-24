@@ -10,6 +10,19 @@ public class LoginRequestDto
     public string Password { get; set; } = string.Empty;
 }
 
+/// <summary>관리자 대리 로그인(「○○ 사용자로 로그인」) 요청 DTO. 로그인 화면 로고를 두 번 눌러 여는 숨은 창에서 보낸다.</summary>
+public class ImpersonateRequestDto
+{
+    /// <summary>대리 로그인을 승인하는 시스템관리자 아이디</summary>
+    public string AdminUsername { get; set; } = string.Empty;
+
+    /// <summary>그 시스템관리자의 비밀번호</summary>
+    public string AdminPassword { get; set; } = string.Empty;
+
+    /// <summary>로그인하려는 대상 사용자 아이디</summary>
+    public string TargetUsername { get; set; } = string.Empty;
+}
+
 /// <summary>로그인 성공 시 반환되는 정보를 담는 DTO</summary>
 public class LoginResponseDto
 {

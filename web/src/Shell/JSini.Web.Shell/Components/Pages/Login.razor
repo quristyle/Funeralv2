@@ -113,6 +113,54 @@
         <a href="/register">가입 신청</a>
     </div>
 
+    @*
+        관리자 대리 로그인 창(「○○ 사용자로 로그인」). 로고를 두 번 누르면 아래 스크립트가 편다.
+        정적 SSR 이라 회로가 없다 — 평범한 폼이고, 제출 실패로 문서가 새로 로드되면 _impersonateError 가 있는 한 서버가 펴 둔 채로 그린다.
+        시스템관리자 아이디·비밀번호로 승인해야 하며, 판정은 서버(AuthServer /impersonate)가 한다.
+    *@
+    <div class="jsini-backdoor" data-backdoor hidden="@(_impersonateError is null)">
+        <div class="jsini-backdoor__card">
+            <div class="jsini-backdoor__head">
+                <span class="jsini-backdoor__title">사용자 대리 로그인</span>
+                <button type="button" class="jsini-backdoor__close" data-backdoor-close
+                        aria-label="닫기">&times;</button>
+            </div>
+
+            @if (_impersonateError is not null)
+            {
+                <div class="jsini-login__error" role="alert">@_impersonateError</div>
+            }
+
+            <EditForm Model="@Impersonate" FormName="impersonate"
+                      OnValidSubmit="@SubmitImpersonateAsync">
+                <DataAnnotationsValidator />
+
+                <div class="jsini-login__field">
+                    <label class="jsini-login__label" for="imp-target">로그인할 사용자 아이디</label>
+                    <InputText id="imp-target" class="jsini-login__input"
+                               @bind-Value="Impersonate!.TargetUsername" autocomplete="off" />
+                    <ValidationMessage For="@(() => Impersonate!.TargetUsername)" />
+                </div>
+
+                <div class="jsini-login__field">
+                    <label class="jsini-login__label" for="imp-admin">시스템관리자 아이디</label>
+                    <InputText id="imp-admin" class="jsini-login__input"
+                               @bind-Value="Impersonate!.AdminUsername" autocomplete="off" />
+                    <ValidationMessage For="@(() => Impersonate!.AdminUsername)" />
+                </div>
+
+                <div class="jsini-login__field">
+                    <label class="jsini-login__label" for="imp-pw">시스템관리자 비밀번호</label>
+                    <InputText id="imp-pw" type="password" class="jsini-login__input"
+                               @bind-Value="Impersonate!.AdminPassword" autocomplete="off" />
+                    <ValidationMessage For="@(() => Impersonate!.AdminPassword)" />
+                </div>
+
+                <button type="submit" class="jsini-login__submit">대리 로그인</button>
+            </EditForm>
+        </div>
+    </div>
+
     @* 개인정보처리방침·이용약관 링크. 소셜 로그인 동의 자리라 여기서도 연다. 문서는 소개 사이트에 있다. *@
     <p class="jsini-login__legal">
         <a href="https://jsini.co.kr/ko/privacy" target="_blank" rel="noopener"><b>개인정보처리방침</b></a>
@@ -156,6 +204,35 @@
                     'href', keep && keep.checked ? base + '&keep=1' : base);
             });
         }
+    })();
+
+    // 로고를 두 번 누르면 관리자 대리 로그인 창을 여닫는다. 왼쪽 브랜드 판 로고(넓은 화면)와
+    // 카드 안 로고(좁은 화면)가 레이아웃에 따라 번갈아 뜨므로 둘 다 건다.
+    (function () {
+        var panel = document.querySelector('[data-backdoor]');
+        if (!panel) { return; }
+
+        var logos = document.querySelectorAll('.jsini-auth__logo, .jsini-login__logo');
+        for (var i = 0; i < logos.length; i++) {
+            logos[i].style.cursor = 'default';
+            logos[i].addEventListener('dblclick', function (e) {
+                e.preventDefault();
+                panel.hidden = !panel.hidden;
+                if (!panel.hidden) {
+                    var first = panel.querySelector('input');
+                    if (first) { first.focus(); }
+                }
+            });
+        }
+
+        var close = panel.querySelector('[data-backdoor-close]');
+        if (close) {
+            close.addEventListener('click', function () { panel.hidden = true; });
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; }
+        });
     })();
 </script>
 

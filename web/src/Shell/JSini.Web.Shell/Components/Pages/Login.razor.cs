@@ -23,6 +23,13 @@ public partial class Login
     [SupplyParameterFromForm(FormName = "passkey-login")]
     private PasskeyLoginInput? Passkey { get; set; }
 
+    /// <summary>관리자 대리 로그인 창(로고를 두 번 눌러 연다)에 실려 온 값. 그 폼이 제출됐을 때만 채워진다.</summary>
+    [SupplyParameterFromForm(FormName = "impersonate")]
+    private ImpersonateInput? Impersonate { get; set; }
+
+    /// <summary>대리 로그인 실패 문구. 값이 있으면 창을 다시 펴 그 자리에서 보여 준다(정적 SSR 이라 제출 뒤 문서가 새로 로드된다).</summary>
+    private string? _impersonateError;
+
     /// <summary>「로그인 유지」 딱지의 날수. 설정을 같은 곳에서 읽어 말만 한다(글자를 박아 두면 설정을 바꿔도 화면만 옛말을 한다).</summary>
     private int KeepSignedInDays => Config.GetValue<int?>("Auth:KeepSignedInDays") ?? 30;
 
@@ -89,6 +96,10 @@ public partial class Login
         var passkeySubmitted = Passkey is not null;
         Passkey ??= new PasskeyLoginInput();
 
+        // 대리 로그인 폼 제출 요청인가. 같은 까닭으로 채우기 전에 본다.
+        var impersonateSubmitted = Impersonate is not null;
+        Impersonate ??= new ImpersonateInput();
+
         // 모델은 첫 await 전에 채운다. 뒤에 채우면 소셜 단추 조회가 기다리는 사이 EditForm 이 Model 없이 그려져 로그인 화면이 500 이 된다.
         var loginSubmitted = Input is not null;
         Input ??= new LoginInput();
@@ -112,6 +123,12 @@ public partial class Login
 
             // 개발 자동 로그인이 패스키 제출을 가로채면 안 된다. 수명 주기가 폼 처리기보다 먼저 돌아, 막지 않으면 지문 요청이 설정 계정으로 들어가 버린다.
         if (passkeySubmitted)
+        {
+            return;
+        }
+
+        // 대리 로그인 제출도 같은 까닭으로 자동 로그인이 가로채면 안 된다.
+        if (impersonateSubmitted)
         {
             return;
         }
@@ -155,6 +172,26 @@ public partial class Login
             HttpContext, Input!.Username, Input.Password, Input.KeepSignedIn);
 
         await GoAsync(result);
+    }
+
+    /// <summary>관리자 대리 로그인. 시스템관리자 아이디·비밀번호로 승인하고 적어 낸 사용자로 로그인한다. 판정은 서버가 하고, 실패하면 창을 다시 펴 보여 준다.</summary>
+    private async Task SubmitImpersonateAsync()
+    {
+        var result = await Auth.ImpersonateAsync(
+            HttpContext,
+            Impersonate!.AdminUsername,
+            Impersonate.AdminPassword,
+            Impersonate.TargetUsername);
+
+        if (!result.Succeeded)
+        {
+            // 창 안에 보여 줄 문구. 아래 로그인 실패 판(_error)과 갈라 둔다.
+            _impersonateError = result.Message;
+            return;
+        }
+
+        var destination = result.PasswordExpired ? "/password/change" : SafeReturnUrl();
+        Navigation.NavigateTo(destination, forceLoad: true);
     }
 
     /// <summary>지문·얼굴로 들어온다. 서명은 passkey.js 가 감춘 칸에 담아 두었고 여기서는 게이트웨이로 넘긴다.</summary>

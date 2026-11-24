@@ -264,6 +264,65 @@ public sealed class LoginService(
             "소셜 계정으로 로그인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
             cancellationToken);
 
+    /// <summary>
+    /// 관리자 대리 로그인 — 시스템관리자의 아이디·비밀번호로 승인하고 <paramref name="targetUsername"/> 사용자로 로그인한다.
+    /// 신원·권한 판정은 전부 게이트웨이 뒤(AuthServer <c>/impersonate</c>)에서 하고, 셸은 성공했을 때 대상 사용자의 토큰으로 쿠키만 굽는다.
+    /// 실패 문구는 서버가 준 것을 그대로 쓴다(이 문은 관리자만 여는 자리라 무엇이 틀렸는지 알려 주어도 된다).
+    /// </summary>
+    public async Task<LoginResult> ImpersonateAsync(
+        HttpContext httpContext,
+        string adminUsername,
+        string adminPassword,
+        string targetUsername,
+        CancellationToken cancellationToken = default)
+    {
+        var client = httpClientFactory.CreateClient(HttpClientName);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.PostAsJsonAsync(
+                "auth/impersonate",
+                new { adminUsername, adminPassword, targetUsername },
+                JsonOptions,
+                cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogError(ex, "대리 로그인 — 게이트웨이에 연결하지 못했다.");
+            return new LoginResult(false, "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning(
+                    "대리 로그인 실패 ({Status}) — admin={Admin} → target={Target}",
+                    (int)response.StatusCode, adminUsername, targetUsername);
+
+                if ((int)response.StatusCode == 429)
+                {
+                    return new LoginResult(false, "시도가 너무 잦습니다. 잠시 뒤 다시 시도해 주세요.");
+                }
+
+                var reason = await ReadMessageAsync(response, cancellationToken);
+                return new LoginResult(false, reason ?? "대리 로그인에 실패했습니다.");
+            }
+
+            var payload = await ReadLoginPayloadAsync(response, cancellationToken);
+            if (payload is null or { AccessToken: null or "" })
+            {
+                logger.LogError("대리 로그인 응답에서 accessToken 을 찾지 못했다.");
+                return new LoginResult(false, "로그인 응답을 해석하지 못했습니다.");
+            }
+
+            // 대리 로그인은 유지(30일)로 굽지 않는다 — 임시로 들어가 보는 자리다.
+            await BakeAsync(httpContext, response, payload, targetUsername, keepSignedIn: false);
+            return new LoginResult(true, PasswordExpired: payload.PasswordExpired);
+        }
+    }
+
     /// <summary>인증 쿠키를 지운다.</summary>
     public static Task SignOutAsync(HttpContext httpContext) =>
         httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

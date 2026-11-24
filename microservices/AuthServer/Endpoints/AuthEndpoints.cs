@@ -74,6 +74,59 @@ public static class AuthEndpoints
             return await completion.CompleteAsync(http, account);
         });
 
+        // 관리자 대리 로그인 — 로그인 화면 로고를 두 번 눌러 여는 숨은 창이 보낸다.
+        // 시스템관리자의 아이디·비밀번호를 함께 받아 본인이 시스템관리자일 때만, 적어 낸 대상 사용자로 로그인시킨다.
+        // 게이트웨이의 auth-route 가 /api/auth/** 를 익명으로 넘기므로(로그인 전 화면이다) 신원 확인은 여기서 전부 한다.
+        group.MapPost("/impersonate", async (ImpersonateRequestDto request, AppDbContext db,
+            ILogger<Account> logger, ILoginLogService loginLog, LoginCompletion completion,
+            IRoleAssignmentService roleService, HttpContext http) =>
+        {
+            logger.LogWarning("대리 로그인 시도: admin={Admin} → target={Target}",
+                request.AdminUsername, request.TargetUsername);
+
+            // 1) 승인하는 시스템관리자의 신원부터 확인한다 — 아이디·비밀번호가 맞아야 한다.
+            //    대리 로그인은 개발용 비밀번호 생략(Auth:SkipPasswordCheck)을 적용하지 않는다 — 언제나 실제 비밀번호를 확인한다.
+            var admin = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == request.AdminUsername);
+            if (admin is null || !PasswordHasher.Verify(admin.Password, request.AdminPassword))
+            {
+                logger.LogWarning("대리 로그인 거부 — 관리자 인증 실패: {Admin}", request.AdminUsername);
+
+                await loginLog.WriteAsync(
+                    admin?.Id, request.AdminUsername, success: false,
+                    admin is null ? LoginFailReason.NotFound : LoginFailReason.BadPassword,
+                    ResolveClientIp(http), http.Request.Headers.UserAgent.ToString());
+
+                return Results.Json(
+                    ApiResponse<object>.Fail("관리자 아이디 또는 비밀번호가 올바르지 않습니다.", "401"), statusCode: 401);
+            }
+
+            // 2) 그 관리자가 실제로 시스템관리자 역할을 가졌는가 — 토큰과 같은 방식으로 적용 역할을 셈한다.
+            var adminRoles = await roleService.ResolveEffectiveRolesAsync(admin.Id);
+            if (!adminRoles.RoleIds.Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("대리 로그인 거부 — 시스템관리자가 아님: {Admin} (roles={Roles})",
+                    admin.UserId, string.Join(',', adminRoles.RoleIds));
+
+                return Results.Json(
+                    ApiResponse<object>.Fail("시스템관리자만 대리 로그인할 수 있습니다.", "403"), statusCode: 403);
+            }
+
+            // 3) 대상 사용자를 찾는다.
+            var target = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == request.TargetUsername);
+            if (target is null)
+            {
+                return Results.Json(
+                    ApiResponse<object>.Fail("대상 사용자를 찾을 수 없습니다.", "404"), statusCode: 404);
+            }
+
+            // 대리 로그인은 누가·누구로 들어갔는지 반드시 남긴다 — 평소 로그인과 구분되는 흔적이다.
+            logger.LogWarning("대리 로그인 성공: admin={Admin} → target={Target} ({Ip})",
+                admin.UserId, target.UserId, ResolveClientIp(http));
+
+            // 대상 계정으로 토큰을 발급하고 쿠키를 굽는다 — 뒤처리는 보통 로그인과 한 벌(LoginCompletion).
+            return await completion.CompleteAsync(http, target);
+        });
+
         // 토큰 갱신 — 프런트(AuthTokenHandler)가 401 을 받으면 여기로 갱신하러 온다. 갱신 실패는 세션 거절이라 401 로 답한다.
         group.MapPost("/refresh", async (
             HttpContext http, IHostEnvironment env,
