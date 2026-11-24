@@ -24,6 +24,14 @@ public sealed class SiteAdminClient(GatewayClient gateway)
     /// <summary>문의를 삭제한다(논리 삭제).</summary>
     public Task DeleteInquiryAsync(Guid id, CancellationToken ct = default)
         => gateway.DeleteAsync($"site/admin/inquiries/{id}", ct);
+
+    /// <summary>여러 문의의 상태를 한꺼번에 바꾼다. 서버가 바꾼 건수를 돌려준다(이미 지워진 것은 빠진다).</summary>
+    public async Task<int> SetStatusManyAsync(IEnumerable<Guid> ids, string status, CancellationToken ct = default)
+        => await gateway.PostAsync<int>("site/admin/inquiries/bulk-status", new { ids = ids.ToList(), status }, ct);
+
+    /// <summary>여러 문의를 한꺼번에 삭제한다(논리 삭제). 서버가 지운 건수를 돌려준다.</summary>
+    public async Task<int> DeleteManyAsync(IEnumerable<Guid> ids, CancellationToken ct = default)
+        => await gateway.PostAsync<int>("site/admin/inquiries/bulk-delete", new { ids = ids.ToList() }, ct);
 }
 
 /// <summary>

@@ -24,10 +24,39 @@
 <CommCont>
     <CommGrd TItem="InquiryDto" Data="@_rows" PageSize="20"
              ExportName="문의"
+             SelectionMode="GridSelectionMode.Multiple"
+             AllowSelectRowByClick="false"
+             SelectedItems="@_picked"
+             SelectedItemsChanged="@((IReadOnlyList<InquiryDto> items) => _picked = items)"
              OnDelete="@DeleteAsync"
              DeleteConfirm="@(q => $"'{q.Subject}' 문의를 삭제하시겠습니까?")"
              Reload="@ReloadAsync">
+        @* 체크한 것의 일괄 동작은 표 위에 둔다 — 오른쪽 클릭 창에만 두면 체크해 놓고 할 일이 안 보인다. *@
+        <Toolbar>
+            <div class="jsini-inline">
+                <PermissionView Action="MenuAction.Update">
+                    @foreach (var s in Statuses)
+                    {
+                        <DxButton Text="@StatusText(s)"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Enabled="@(_picked.Count > 0)"
+                                  Click="@(() => SetStatusPickedAsync(s))" />
+                    }
+                </PermissionView>
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton Text="선택 삭제" IconCssClass="jsini-icon-trash"
+                              RenderStyle="ButtonRenderStyle.Danger"
+                              Enabled="@(_picked.Count > 0)"
+                              Click="@DeletePickedAsync" />
+                </PermissionView>
+                @if (_picked.Count > 0)
+                {
+                    <span class="jsini-hint">@(_picked.Count)건 선택</span>
+                }
+            </div>
+        </Toolbar>
         <Columns>
+            <DxGridSelectionColumn Width="50" />
             <DxGridDataColumn FieldName="@nameof(InquiryDto.CreatedAt)" Caption="접수" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
             <DxGridDataColumn FieldName="@nameof(InquiryDto.Name)" Caption="이름" Width="120" />
             <DxGridDataColumn FieldName="@nameof(InquiryDto.Company)" Caption="회사" Width="150" />

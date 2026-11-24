@@ -234,6 +234,72 @@ public static class SiteEndpoints
         })
         .WithName("AdminDeleteInquiry");
 
+        // 목록에서 체크한 것을 한 왕복·한 저장으로 처리한다 — 한 건씩 부르면 중간에 끊겼을 때 어디까지 됐는지 알 수 없다.
+        const int BulkMax = 500;
+
+        admin.MapPost("/inquiries/bulk-status", async (
+            [FromBody] InquiryBulkDto request, UserContext? user,
+            [FromServices] Data.SiteDbContext db) =>
+        {
+            if (user is null) return Unauthorized();
+            if (!IsAdmin(user)) return Forbidden();
+
+            string[] allowed = ["new", "reading", "replied", "closed"];
+            if (request.Status is null || !allowed.Contains(request.Status))
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail(
+                    $"상태는 {string.Join(" · ", allowed)} 중 하나여야 합니다.", "400"));
+            }
+
+            var ids = request.Ids.Distinct().ToList();
+            if (ids.Count == 0 || ids.Count > BulkMax)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail($"문의를 1~{BulkMax}건 골라야 합니다.", "400"));
+            }
+
+            var rows = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .ToListAsync(db.Inquiries.Where(x => ids.Contains(x.Id) && !x.IsDeleted));
+            var now = DateTime.UtcNow;
+            foreach (var row in rows)
+            {
+                row.Status = request.Status;
+                row.UpdatedAt = now;
+                row.UpdatedBy = user.UserId;
+            }
+            await db.SaveChangesAsync();
+
+            return Results.Ok(ApiResponse<int>.Ok(rows.Count));
+        })
+        .WithName("AdminBulkSetInquiryStatus");
+
+        admin.MapPost("/inquiries/bulk-delete", async (
+            [FromBody] InquiryBulkDto request, UserContext? user,
+            [FromServices] Data.SiteDbContext db) =>
+        {
+            if (user is null) return Unauthorized();
+            if (!IsAdmin(user)) return Forbidden();
+
+            var ids = request.Ids.Distinct().ToList();
+            if (ids.Count == 0 || ids.Count > BulkMax)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail($"문의를 1~{BulkMax}건 골라야 합니다.", "400"));
+            }
+
+            var rows = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .ToListAsync(db.Inquiries.Where(x => ids.Contains(x.Id) && !x.IsDeleted));
+            var now = DateTime.UtcNow;
+            foreach (var row in rows)
+            {
+                row.IsDeleted = true;
+                row.UpdatedAt = now;
+                row.UpdatedBy = user.UserId;
+            }
+            await db.SaveChangesAsync();
+
+            return Results.Ok(ApiResponse<int>.Ok(rows.Count));
+        })
+        .WithName("AdminBulkDeleteInquiries");
+
         // ── 답장 ────────────────────────────────────────────
         // 문의 답장. 주소는 화면이 채우거나 관리자가 적어 보내므로 to 를 요청으로 받는다. 본문은 에디터가 쓴 HTML 이고 메일 틀은 InquiryEmailTemplates 가 입힌다.
         admin.MapPost("/inquiries/{id:guid}/reply", async (

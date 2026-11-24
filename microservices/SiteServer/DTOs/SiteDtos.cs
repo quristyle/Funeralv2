@@ -101,6 +101,13 @@ public class InquiryStatusUpdateDto
     public string Status { get; set; } = string.Empty;
 }
 
+/// <summary>여러 문의를 한꺼번에 처리하는 요청. 삭제에서는 Status 를 쓰지 않는다.</summary>
+public class InquiryBulkDto
+{
+    public List<Guid> Ids { get; set; } = [];
+    public string? Status { get; set; }
+}
+
 /// <summary>문의 답장 요청 (관리 화면).</summary>
 public class InquiryReplyDto
 {
