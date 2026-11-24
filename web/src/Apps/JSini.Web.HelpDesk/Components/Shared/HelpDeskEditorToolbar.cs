@@ -24,9 +24,24 @@ internal static class HelpDeskEditorToolbar
     ];
 
     /// <summary>도구줄을 세우고 「그림」 단추에 <paramref name="pictureButtonClass"/> 를 단다 — JS 가 이 이름으로 누름을 가로챈다.
-    /// 빠뜨리면 편집기 제 판이 열려 사진이 base64 로 박힌다.</summary>
-    public static void Apply(IToolbar toolbar, string pictureButtonClass)
+    /// 빠뜨리면 편집기 제 판이 열려 사진이 base64 로 박힌다.
+    /// <paramref name="full"/> 이면 기본 도구줄을 그대로 둔다 — 사람이 스스로 고른 때만 쓴다(그만큼 화면이 늦게 선다).</summary>
+    public static void Apply(IToolbar toolbar, string pictureButtonClass, bool full = false)
     {
+        if (full)
+        {
+            var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
+                ?.Items[HtmlEditorToolbarItemNames.ShowInsertPictureDialog];
+
+            if (picture is not null)
+            {
+                picture.CssClass = pictureButtonClass;
+            }
+
+            HtmlEditorKorean.Apply(toolbar);
+            return;
+        }
+
         toolbar.Groups.Clear();
 
         var group = toolbar.Groups.AddCustomGroup();

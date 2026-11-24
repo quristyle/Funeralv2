@@ -17,6 +17,13 @@ public partial class RequestNew
     [Inject] private HelpDeskApi Api { get; set; } = default!;
     [Inject] private ContentImages Images { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private PortalTabs Tabs { get; set; } = default!;
+
+    /// <summary>이 화면의 탭 주소. 등록을 마치면 이 탭을 닫는다.</summary>
+    private const string Href = "/helpdesk/request/new";
+
+    /// <summary>「서식 도구 모두 보기」를 켰는지 적어 두는 브라우저 열쇠. 화면 크기처럼 기기에 딸린 값이다.</summary>
+    private const string FullToolbarKey = "jsini-hd-editor-full-toolbar";
 
     /// <summary>편집기를 짚는 이름. JS 와 CSS 가 같은 글자를 본다.</summary>
     private const string EditorSelector = ".hd-content-editor";
@@ -95,9 +102,13 @@ public partial class RequestNew
     /// 모르고 믿는 편이 아예 없는 것보다 나쁘다.</summary>
     private bool _draftBlocked;
 
-    /// <summary>도구줄을 헬프데스크 한 벌(<see cref="HelpDeskEditorToolbar"/>)로 손본다.</summary>
+    /// <summary>기본 도구줄(글꼴·색·표·맞춤 …)을 모두 세우는가. 기본은 아홉 단추 — 모두 세우면 그림 묶음이 300KB 라 화면이 1초 가까이 멎는다.
+    /// 켠 사람에게만 그 값을 치르게 한다.</summary>
+    private bool _fullToolbar;
+
+    /// <summary>도구줄을 헬프데스크 한 벌(<see cref="HelpDeskEditorToolbar"/>)로 손본다. 편집기가 설 때 한 번 불리므로 그때의 _fullToolbar 를 따른다.</summary>
     private void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar) =>
-        HelpDeskEditorToolbar.Apply(toolbar, PictureButtonClass);
+        HelpDeskEditorToolbar.Apply(toolbar, PictureButtonClass, _fullToolbar);
 
     /// <summary>도구줄을 손보는 대리자. 한 번 만들어 들고 있는다 — @CustomizeEditorToolbar 로 적으면 그릴 때마다 새 대리자가 되어 도구줄을 다시 세운다.</summary>
     private Action<DevExpress.Blazor.Office.IToolbar>? _customizeToolbar;
@@ -248,6 +259,15 @@ public partial class RequestNew
         var owner = AuthState is null ? null : (await AuthState).User.Identity?.Name?.Trim();
         _draftKey = DraftKeyPrefix + (string.IsNullOrEmpty(owner) ? "?" : owner);
 
+        // 도구를 모두 보기로 해 둔 브라우저면 편집기를 그 모양으로 다시 세운다(아래 _editorKey++ 와 같은 한 번이다).
+        if (await ReadFullToolbarAsync())
+        {
+            _fullToolbar = true;
+            _editorKey++;
+            _bound = false;
+            _draftWatched = false;
+        }
+
         // 「재요청」으로 들어왔으면 그쪽이 먼저다 — 오래된 임시본이 덮으면 엉뚱한 글이 뜬다. 임시본은 지우지 않는다(지켜보기가 곧 덮어쓴다).
         var seeded = await SeedFromSourceAsync();
 
@@ -373,6 +393,53 @@ public partial class RequestNew
         }
 
         await DiscardDraftAsync();
+    }
+
+    private async Task<bool> ReadFullToolbarAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string?>("localStorage.getItem", FullToolbarKey) == "1";
+        }
+        catch (JSException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>서식 도구를 모두 보이거나 아홉 단추로 되돌린다. 도구줄은 편집기가 설 때만 정해지므로 편집기를 다시 세운다 —
+    /// 그 전에 화면의 글을 걷어 온다(MarkupChanged 는 500ms 늦어 치던 마지막 글자가 빠진다).</summary>
+    private async Task ToggleFullToolbarAsync()
+    {
+        await FlushContentAsync(keepIfBlank: true);
+
+        _fullToolbar = !_fullToolbar;
+        _editorKey++;
+        _bound = false;
+        _draftWatched = false;
+
+        try
+        {
+            if (_fullToolbar)
+            {
+                await JS.InvokeVoidAsync("localStorage.setItem", FullToolbarKey, "1");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("localStorage.removeItem", FullToolbarKey);
+            }
+        }
+        catch (JSException)
+        {
+            // 적지 못해도 지금 화면에서는 바뀐다.
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private async Task DiscardDraftAsync()
@@ -597,8 +664,9 @@ public partial class RequestNew
                     await _picker.ClearAsync();
                 }
 
-                // 목록으로 보낸다 — 등록 화면에 남기면 같은 요청을 두 번 넣기 쉽다.
+                // 이 탭을 닫고 목록으로 보낸다 — 등록 화면이 탭에 남으면 같은 요청을 두 번 넣기 쉽다.
                 // 고객으로 들어오면 「요청 처리」가 「요청자 = 나」로 서서 방금 넣은 것이 맨 위에 있다.
+                Tabs.Close(Href);
                 Navigation.NavigateTo("/helpdesk/request/manage");
                 return;
             }

@@ -70,7 +70,8 @@
 }
 
 /* 펼쳐 둔 동안 눌린 티를 낸다. */
-.hd-tools .hd-ai__btn.is-on {
+.hd-tools .hd-ai__btn.is-on,
+.hd-tools .hd-tool-btn.is-on {
   border-color: var(--jsini-accent);
   color: var(--jsini-accent);
 }
