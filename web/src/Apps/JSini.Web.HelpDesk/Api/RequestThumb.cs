@@ -57,7 +57,7 @@ public static class RequestThumb
     }
 
     /// <summary>그림 첨부인가. 종류와 확장자를 둘 다 본다 — 브라우저가 종류를 못 읽으면 octet-stream 으로 올라와 그림이 조용히 빠진다.</summary>
-    private static bool IsImage(Attachment a)
+    internal static bool IsImage(Attachment a)
     {
         if (string.IsNullOrWhiteSpace(a.FileId))
         {

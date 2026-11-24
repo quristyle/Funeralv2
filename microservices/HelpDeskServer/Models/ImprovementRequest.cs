@@ -32,6 +32,10 @@ namespace HelpDeskServer.Models {
     [NotMapped]
     public string? CompanyName { get; set; }
 
+    /// <summary>이 요청에 붙은 첨부. <b>DB 칸이 아니다</b> — 첨부는 공통 표(attachments)에 EntityType 「ImprovementRequest」로 걸려 있어 상세 조회가 따로 채운다.</summary>
+    [NotMapped]
+    public List<Attachment>? Attachments { get; set; }
+
     /// <summary>담당 관리자 ID</summary>
     public int? AdminId { get; set; }
 

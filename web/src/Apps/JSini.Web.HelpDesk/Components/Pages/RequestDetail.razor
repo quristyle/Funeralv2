@@ -96,6 +96,42 @@
 
         @* 본문은 서식 편집기가 쓴 HTML 이다. `data-imgview-scope` 로 그림을 크게 볼 수 있다. *@
         <div class="hd-content" data-imgview-scope>@Body()</div>
+
+        @* 그림은 눌러 크게 보고(앞뒤로 넘긴다), 모든 파일은 이름을 눌러 내려받는다. *@
+        @if (_attachments.Count > 0)
+        {
+            <section class="hd-attach" aria-label="첨부파일">
+                <h2 class="hd-subhead">첨부 @_attachments.Count</h2>
+                <ul class="hd-attach__list">
+                    @foreach (var file in _attachments)
+                    {
+                        <li class="hd-attach__item">
+                            @if (ImageIndex(file) is { } index)
+                            {
+                                <button type="button" class="hd-attach__thumb"
+                                        title="@($"{file.OriginalFileName} 크게 보기")"
+                                        aria-label="@($"{file.OriginalFileName} 크게 보기")"
+                                        @onclick="@(() => OpenImages(index))">
+                                    <img src="@FileDownload.ThumbnailUrlFor(file.FileId!)" alt="" loading="lazy" />
+                                </button>
+                            }
+                            <a class="hd-cmt__file"
+                               href="@FileUrl(file)"
+                               target="_blank"
+                               download="@file.OriginalFileName"
+                               title="@($"{file.OriginalFileName} 내려받기")">
+                                <span class="jsini-icon-paperclip" aria-hidden="true"></span>
+                                <span class="hd-cmt__file-name">@file.OriginalFileName</span>
+                                @if (file.FileSize is > 0)
+                                {
+                                    <span class="hd-cmt__file-size">(@HumanSize(file.FileSize.Value))</span>
+                                }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
     }
 
     @if (_notFound)

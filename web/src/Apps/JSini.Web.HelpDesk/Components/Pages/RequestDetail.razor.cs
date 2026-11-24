@@ -19,6 +19,7 @@ public partial class RequestDetail : IDisposable
     [Inject] private PortalTabs Tabs { get; set; } = default!;
     [Inject] private GatewayClient Gateway { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private ImagePreview Preview { get; set; } = default!;
 
     /// <summary>주소의 요청 키.</summary>
     [Parameter] public string Id { get; set; } = string.Empty;
@@ -27,6 +28,12 @@ public partial class RequestDetail : IDisposable
     private const string MenuPath = "/helpdesk/request/detail/:id";
 
     private JsonElement? _request;
+
+    /// <summary>요청에 붙은 첨부. 댓글의 첨부는 댓글 나무가 따로 그린다.</summary>
+    private IReadOnlyList<Attachment> _attachments = [];
+
+    /// <summary>첨부 중 그림만. 미리보기에서 앞뒤로 넘길 차례다.</summary>
+    private IReadOnlyList<Attachment> _images = [];
 
     /// <summary>서버가 404 로 답했다 — 「못 읽었다」와 갈라 「없다」고 말한다.</summary>
     private bool _notFound;
@@ -247,6 +254,8 @@ public partial class RequestDetail : IDisposable
         await Task.WhenAll(request, comments);
 
         _request = request.Result;
+        _attachments = AttachmentsOf(_request);
+        _images = _attachments.Where(RequestThumb.IsImage).ToList();
         _commentCount = comments.Result.Count;
         _roots = CommentTree.Build(comments.Result);
 
@@ -623,6 +632,60 @@ public partial class RequestDetail : IDisposable
         var html = Value("description") ?? Value("content");
         return new MarkupString(NoticeHtml.Sanitize(html));
     }
+
+    /// <summary>응답의 <c>attachments</c> 를 꺼낸다. 칸이 없거나 못 읽으면 빈 목록이다 — 첨부 때문에 본문까지 못 보게 하지 않는다.</summary>
+    private static IReadOnlyList<Attachment> AttachmentsOf(JsonElement? request)
+    {
+        if (request is not { ValueKind: JsonValueKind.Object } obj
+            || !obj.TryGetProperty("attachments", out var raw)
+            || raw.ValueKind is not JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        try
+        {
+            return raw.Deserialize<List<Attachment>>(HelpDeskApi.JsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>그림 첨부면 미리보기 목록에서의 차례, 아니면 <c>null</c>.</summary>
+    private int? ImageIndex(Attachment file)
+    {
+        for (var i = 0; i < _images.Count; i++)
+        {
+            if (ReferenceEquals(_images[i], file))
+            {
+                return i;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>그림 첨부 전부를 미리보기로 띄우고 누른 것부터 보인다.</summary>
+    private void OpenImages(int index) =>
+        Preview.OpenAll(
+            _images.Select(a => new ImagePreviewItem(FileUrl(a), a.OriginalFileName)),
+            index);
+
+    /// <summary>첨부 하나의 주소. FileServer 로 옮긴 것은 셸 중계로, 옛 첨부는 헬프데스크 경로로 간다(댓글 첨부와 같은 규칙).</summary>
+    private static string FileUrl(Attachment file) =>
+        !string.IsNullOrWhiteSpace(file.FileId)
+            ? FileDownload.UrlFor(file.FileId, file.OriginalFileName)
+            : $"/api/helpdesk/attachments/download/{file.Id}";
+
+    private static string HumanSize(long bytes) => bytes switch
+    {
+        >= 1024L * 1024 * 1024 => $"{bytes / 1024.0 / 1024 / 1024:0.#} GB",
+        >= 1024 * 1024 => $"{bytes / 1024.0 / 1024:0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
 
     /// <summary>응답에서 칸 하나를 꺼낸다. 없으면 <c>null</c>.</summary>
     private string? Value(string name) =>

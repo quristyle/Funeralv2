@@ -317,6 +317,12 @@ public static class RequestEndpoints {
               await companies.GetNameAsync(request.Customer?.CompanyId, ct)
               ?? request.Customer?.CompanyId;
 
+          request.Attachments = await db.Attachments
+              .AsNoTracking()
+              .Where(a => a.EntityType == "ImprovementRequest" && a.EntityId == id)
+              .OrderBy(a => a.Id)
+              .ToListAsync(ct);
+
           return request;
         }));
 
