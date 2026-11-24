@@ -109,8 +109,12 @@
                 InputDelay="300"
                 Rows="6"
                 CssClass="pm-ask__text"
-                NullText="첫 줄이 제목이 됩니다."
+                NullText="첫 줄이 제목이 됩니다. 화면 캡처는 Ctrl+V 로 붙입니다."
                 Enabled="@(!Busy)" />
+
+        @* 글상자에 붙여넣은 그림이 타고 오는 칸. 사람이 누르는 칸이 아니다 — ask-draft.js 가 붙여넣기를 가로채 여기에 넣는다. *@
+        <InputFile id="@_pasteInputId" class="pm-ask__paste" multiple accept="image/*"
+                   OnChange="@OnPastedAsync" />
 
         @* 고르개는 아래 단추 줄에 서고, 여기에는 고른 뒤에만 생기는 줄이 온다. 파일은 고르는 순간 올린다(작업 번호가 없어 서버가 주인 없이 담고, 보낼 때 묶는다).
            올린 뒤 FilePicker 목록은 비운다 — 안 비우면 앞엣것이 다시 올라간다. 다 올라가기 전에는 CanSend 가 막는다. *@

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using JSini.Web.Http;
 using JSini.Web.Components.Data;
@@ -437,6 +438,129 @@ public partial class AiAskPanel
         }
     }
 
+    /// <summary>붙여넣은 그림이 타고 오는 숨은 파일 칸. 화면과 서랍이 함께 떠 있어도 갈리도록 부품마다 짓는다.</summary>
+    private readonly string _pasteInputId = $"pm-ask-paste-{Guid.NewGuid():N}";
+
+    /// <summary>글상자에 붙여넣은(끌어다 놓은) 그림을 고르개와 같은 길로 올리고, 붙여넣은 자리에 <c>[그림: 이름]</c> 표지를 꽂는다.
+    /// 표지는 실행기가 지시문 끝에 적어 주는 첨부 목록의 「원래 이름」과 같은 글자라 모델이 그 파일을 짚을 수 있다. 올라간 것에만 꽂는다 — 자리가 모자라 빠진 그림의 표지가 남으면 없는 첨부를 가리킨다.</summary>
+    private async Task OnPastedAsync(InputFileChangeEventArgs e)
+    {
+        if (_uploading)
+        {
+            Say("앞의 첨부를 올리는 중입니다. 다 올라간 뒤 다시 붙여 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var room = MaxFiles - _attached.Count;
+        if (room <= 0)
+        {
+            Say($"첨부는 {MaxFiles}개까지입니다. 하나를 뗀 뒤 붙여 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var images = e.GetMultipleFiles(int.MaxValue)
+            .Where(f => f.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (images.Count == 0)
+        {
+            return;
+        }
+
+        var dropped = Math.Max(0, images.Count - room);
+        images = [.. images.Take(room)];
+
+        if (images.FirstOrDefault(f => f.Size > MaxFileBytes) is { } big)
+        {
+            Say($"{big.Name} 은(는) {MaxFileBytes / 1024 / 1024}MB 를 넘어 붙이지 못합니다.", NoticeTone.Warning);
+            return;
+        }
+
+        _uploading = true;
+        StateHasChanged();
+
+        var dir = Directory.CreateDirectory(
+            Path.Combine(Path.GetTempPath(), "jsini-upload", Guid.NewGuid().ToString("N"))).FullName;
+
+        try
+        {
+            var picked = new List<PickedFile>(images.Count);
+
+            // 브라우저 스트림은 이 상호작용 동안에만 산다 — 먼저 임시 파일로 받아 둔다(FilePicker 와 같은 사정).
+            foreach (var image in images)
+            {
+                var path = Path.Combine(dir, Guid.NewGuid().ToString("N"));
+
+                await using (var source = image.OpenReadStream(MaxFileBytes))
+                await using (var target = File.Create(path))
+                {
+                    await source.CopyToAsync(target);
+                }
+
+                picked.Add(new PickedFile(image.Name, image.ContentType, image.Size, path));
+            }
+
+            var saved = await Api.StageFilesAsync(picked);
+
+            _attached = [.. _attached, .. saved];
+
+            await InsertImageMarksAsync(saved);
+
+            Say(dropped > 0
+                ? $"그림 {saved.Count}개를 붙였습니다 — 자리가 모자라 {dropped}개는 빠졌습니다."
+                : saved.Count == 1 ? $"{saved[0].FileNm} 을(를) 붙였습니다." : $"그림 {saved.Count}개를 붙였습니다.",
+                dropped > 0 ? NoticeTone.Warning : NoticeTone.Info);
+        }
+        catch (ApiException ex)
+        {
+            Say($"붙여넣은 그림을 올리지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+        catch (IOException ex)
+        {
+            // 브라우저가 바이트를 다 넘기기 전에 끊겼다(큰 그림 · 느린 회선).
+            Say($"붙여넣은 그림을 받지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (IOException)
+            {
+                // 임시 파일이다. 못 지워도 업무에 영향이 없다.
+            }
+
+            _uploading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>글상자의 붙여넣은 자리에 표지를 꽂고, 바뀐 글을 글상자 값으로 삼는다.</summary>
+    private async Task InsertImageMarksAsync(IReadOnlyList<AiTaskFileDto> saved)
+    {
+        if (saved.Count == 0 || _draftModule is null)
+        {
+            return;
+        }
+
+        var marks = string.Join("\n", saved.Select(f => $"[그림: {f.FileNm}]"));
+
+        try
+        {
+            var text = await _draftModule.InvokeAsync<string?>("insertImageMarks", DraftSelector, marks);
+
+            if (text is not null)
+            {
+                Text = text;
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+            // 표지를 못 꽂아도 첨부는 붙어 있고 실행기가 목록으로 받는다.
+        }
+    }
+
     private Task OnSelectionChanged(IReadOnlyList<string> fileNames)
     {
         _selectedFileNames = fileNames;
@@ -573,6 +697,9 @@ public partial class AiAskPanel
             // Ctrl+Enter 로 보내는 길. 같은 글상자를 잡으므로 같은 모듈이 한다.
             _draftRef ??= DotNetObjectReference.Create(this);
             await _draftModule.InvokeVoidAsync("attachSubmitKey", DraftSelector, _draftRef);
+
+            // 클립보드 그림 붙여넣기. 같은 글상자를 잡으므로 같은 모듈이 한다.
+            await _draftModule.InvokeVoidAsync("attachPasteImages", DraftSelector, _pasteInputId);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException)
         {

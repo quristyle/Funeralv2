@@ -2098,6 +2098,11 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 /* ── 고르개는 아이콘 하나다 ───────────────────────────── */
 /* 공용 FilePicker 의 끌어놓기 칸은 줄 폭을 다 쓰고 안내를 더해, 줄이 풀리고 보내기 단추가 자판 밑으로 내려간다. 그림은 DevExpress 의 올리기 그림을 쓰고 글자만 뗀다. */
 
+/* 붙여넣은 그림이 타고 오는 숨은 파일 칸(ask-draft.js attachPasteImages). 자리를 먹지 않는다. */
+.pm-ask__paste {
+    display: none;
+}
+
 .pm-ask__pick {
   flex: 0 0 auto;
   display: inline-flex;
