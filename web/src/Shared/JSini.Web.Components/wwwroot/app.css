@@ -2016,7 +2016,9 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.7rem 1rem;
+
+/* 세로 틈은 떠 있는 라벨(칸 위로 반 줄)이 앉을 자리다. 가로 틈은 라벨이 칸 앞에서 빠진 만큼 좁혔다. */
+  gap: 0.875rem 0.75rem;
 
 /* 단추 묶음은 0 에서 자란다(auto 면 조건이 많을 때 단추 묶음이 통째로 다음 줄로 밀린다). */
   flex: 1 1 0;
@@ -2041,10 +2043,10 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 @media (min-width: 768px) {
   .commsch:not(.commsch--stacked) .commsch__fields:has(> .commsch__item:nth-child(6)) {
     display: grid;
-/* 기둥 하나는 17rem 이상이어야 가장 넓은 날짜 칸이 잘리지 않는다. 좁은 창에서 기둥이 하나가 되는 것은 고장이 아니다. */
-    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+/* 기둥은 입력칸 하나의 폭이다(라벨이 테두리에 얹혀 칸 앞 자리를 안 먹는다). 12.5rem 은 가장 넓은 날짜 칸(195px)이 잘리지 않는 바닥이다. */
+    grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
     align-items: center;
-    gap: 0.6rem 1rem;
+    gap: 0.875rem 0.75rem;
   }
 
 /* 라벨이 칸 앞에 서는 칸(체크칸 따위)도 기둥 안에서 입력칸의 왼쪽 끝을 맞춘다. 테두리에 얹히는 라벨은 tabler.css 가 맡는다. */
@@ -2054,11 +2056,11 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     text-align: right;
   }
 
-/* 입력칸은 기둥의 남은 폭을 채우되 14rem 에서 멈춘다. 끝까지 채우면 날짜 칸 하나가 지나치게 넓어지고, 14rem 은 가장 넓은 칸(날짜 195px)이 잘리지 않는 기준이다. */
+/* 입력칸은 기둥을 끝까지 채운다. 멈추게 두면 칸과 다음 기둥 사이에 빈 띠가 남아 칸끼리 떨어져 보인다. */
   .commsch:not(.commsch--stacked) .commsch__fields:has(> .commsch__item:nth-child(6)) .commsch__item > :last-child {
     flex: 1 1 auto;
     width: auto !important;
-    max-width: 14rem;
+    max-width: none;
   }
 }
 
