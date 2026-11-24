@@ -75,7 +75,7 @@ public sealed class RequestRequesterTests
     [Fact]
     public void 등록은_고객_번호를_보내지_않는다()
     {
-        var create = Between(Page(), "private async Task<int?> CreateAsync", "private async Task<int> UploadAsync");
+        var create = Between(Submitter(), "private async Task<int?> CreateAsync", "private async Task<int> UploadAsync");
 
         // 주석은 그 사고를 적어 두라고 남긴 것이라 뺀다. 검사는 **코드**만 본다.
         var code = StripComments(create);
@@ -222,6 +222,10 @@ public sealed class RequestRequesterTests
 
     private static string Page() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "RequestNew.razor"));
+
+    /// <summary>요청을 실제로 보내는 자리. 등록 화면은 칸만 확인하고 여기로 넘긴다.</summary>
+    private static string Submitter() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Api", "RequestSubmitter.cs"));
 
     private static string Endpoint() => RazorSource.Read(Path.Combine(
         RepoRoot(), "microservices", "HelpDeskServer", "Endpoints", "RequestEndpoints.cs"));

@@ -18,6 +18,7 @@ public partial class RequestNew
     [Inject] private ContentImages Images { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
+    [Inject] private RequestSubmitter Submitter { get; set; } = default!;
 
     /// <summary>이 화면의 탭 주소. 등록을 마치면 이 탭을 닫는다.</summary>
     private const string Href = "/helpdesk/request/new";
@@ -611,15 +612,13 @@ public partial class RequestNew
         }
 
         _saving = true;
-        StateHasChanged();
-        await Task.Yield(); // UI 업데이트를 위해 제어권 양보 (화면 멈춤 방지)
 
         try
         {
-            // 편집기가 아직 알려 주지 않은 마지막 줄까지 여기서 받아 온다.
+            // 편집기가 아직 알려 주지 않은 마지막 줄까지 여기서 받아 온다. 브라우저 왕복 하나라 누른 느낌을 늦추지 않는다.
             await FlushContentAsync();
 
-            // 브라우저의 required 만 믿지 않는다 — 서버도 보지만 여기서 막으면 왕복을 아끼고 빠진 칸을 바로 알려 준다.
+            // 빠진 칸은 화면이 있을 때 막는다 — 닫고 나서 알리면 고칠 자리가 없다.
             if (RequestContentHtml.IsBlank(_content))
             {
                 Say("내용을 채워 주십시오.", NoticeTone.Warning);
@@ -635,45 +634,22 @@ public partial class RequestNew
                     return;
                 }
                 _title = extracted;
-                StateHasChanged();
             }
 
-            // 가로채기를 지나온 그림이 남아 있으면 여기서 파일로 바꾼다.
-            var content = await AbsorbPendingImagesAsync(_content);
+            // 첨부는 고르개의 임시 폴더에서 떼어 온다 — 화면이 닫히면 고르개가 그 폴더를 지운다.
+            var job = new RequestSubmitter.Job(
+                _title, _content, RequestSubmitter.TakeOver(_files), _draftKey);
+            _files = [];
 
-            if (content is null)
-            {
-                return;
-            }
-
-            var created = await CreateAsync(RequestContentHtml.ToStored(content));
-            if (created is null)
-            {
-                return;
-            }
-
-            // 요청이 들어간 자리에서 적어 둔 것을 버린다 — 첨부가 뒤에서 실패해도 글은 이미 서버에 있어, 남기면 되살아나 두 번 들어간다.
+            // 적어 둔 것은 지금 버린다 — 남기면 등록이 끝나기 전에 요청 등록을 다시 열었을 때 같은 글이 되살아나 두 번 들어간다.
+            // 실패하면 등록 창구가 같은 열쇠로 되돌려 적는다.
             await ForgetDraftAsync(andStop: true);
 
-            var failed = await UploadAsync(created.Value);
+            // 저장은 뒤에서 마치고 화면은 지금 닫는다. 결과는 토스트로 오고, 「요청 처리」는 등록이 끝나면 목록을 다시 읽는다.
+            Submitter.Start(job);
 
-            if (failed == 0)
-            {
-                if (_picker is not null)
-                {
-                    await _picker.ClearAsync();
-                }
-
-                // 이 탭을 닫고 목록으로 보낸다 — 등록 화면이 탭에 남으면 같은 요청을 두 번 넣기 쉽다.
-                // 고객으로 들어오면 「요청 처리」가 「요청자 = 나」로 서서 방금 넣은 것이 맨 위에 있다.
-                Tabs.Close(Href);
-                Navigation.NavigateTo("/helpdesk/request/manage");
-                return;
-            }
-
-            // 목록으로 보내지 않는다 — 요청은 이미 들어갔으니 다시 등록하면 안 되고, 첨부는 상세 화면에서 올린다.
-            Say($"요청은 등록했지만 첨부 {failed}개를 올리지 못했습니다. "
-                + $"요청 {created} 번 상세에서 다시 올려 주십시오.", NoticeTone.Warning);
+            Tabs.Close(Href);
+            Navigation.NavigateTo("/helpdesk/request/manage");
         }
         finally
         {
@@ -767,93 +743,6 @@ public partial class RequestNew
         }
         catch (InvalidOperationException)
         {
-        }
-    }
-
-    /// <summary>본문에 남은 data URI 그림을 파일로 바꾼다. 하나라도 실패하면 null 이고 등록하지 않는다.
-    /// base64 본문을 그대로 저장하면 DB 와 목록·메일이 무거워지고 서버가 그 data URI 를 배포 장비 디스크에 떨군다 — 한 번 더 누르게 하는 편이 낫다.</summary>
-    private async Task<string?> AbsorbPendingImagesAsync(string content)
-    {
-        var absorbed = await Images.AbsorbAsync(content);
-
-        if (absorbed.Url is null)
-        {
-            Say(absorbed.Error ?? "본문에 든 그림을 올리지 못했습니다.", NoticeTone.Error);
-            return null;
-        }
-
-        // 화면에도 반영해 둔다 — 등록이 뒤에서 실패했을 때 편집기에 base64 가 남으면 누를 때마다 같은 일을 되풀이한다.
-        _content = absorbed.Url;
-
-        return absorbed.Url;
-    }
-
-    /// <summary>요청을 만든다. 성공하면 새 요청 번호. 폼으로 보낸다 — 칸 이름(Title · Description)이 서버가 읽는 그대로여야 한다. 모르는 칸은 말없이 버려져 빈 값으로 저장된다.</summary>
-    private async Task<int?> CreateAsync(string description)
-    {
-        int? id = null;
-
-        var ok = await RunAsync(async () =>
-        {
-            using var form = new MultipartFormDataContent
-            {
-                { new StringContent(_title!.Trim()), "Title" },
-                { new StringContent(description), "Description" },
-            };
-
-            // 고객 번호는 보내지 않는다 — 요청자는 글을 쓴 사람으로 고정이고, 서버는 안 보내면 그렇게 한다(RequesterProvisioner.ResolveAsync).
-            // HelpdeskUserId 를 실으면 담당자 번호(admin.id)와 겹치는 고객 이름으로 요청이 들어간다.
-
-            var created = await Api.PostMultipartAsync<ImprovementRequest>("requests", form);
-            id = created?.Id;
-        }, "요청을 등록했습니다.", "요청을 등록하지 못했습니다");
-
-        return ok ? id : null;
-    }
-
-    /// <summary>첨부를 한 번에 올린다. 돌려주는 값은 실패한 개수. 하나라도 실패하면 서버가 502 로 어느 것인지 담아 준다.</summary>
-    private async Task<int> UploadAsync(int requestId)
-    {
-        if (_files.Count == 0)
-        {
-            return 0;
-        }
-
-        var streams = new List<Stream>(_files.Count);
-        try
-        {
-            using var form = new MultipartFormDataContent
-            {
-                { new StringContent("ImprovementRequest"), "entityType" },
-                { new StringContent(requestId.ToString()), "entityId" },
-            };
-
-            foreach (var file in _files)
-            {
-                var stream = file.OpenRead();
-                streams.Add(stream);
-
-                var part = new StreamContent(stream);
-                part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
-
-                // 칸 이름이 `files` 여야 한다 — 서버가 그 이름으로 묶어 받는다.
-                form.Add(part, "files", file.Name);
-            }
-
-            await Api.PostMultipartAsync<JsonElement?>("files/upload", form);
-            return 0;
-        }
-        catch (ApiException)
-        {
-            // 어느 것이 실패했는지는 여기서 쓰지 않는다 — 개수만 세서 부르는 쪽이 상세에서 다시 올리라고 안내한다.
-            return _files.Count;
-        }
-        finally
-        {
-            foreach (var stream in streams)
-            {
-                await stream.DisposeAsync();
-            }
         }
     }
 

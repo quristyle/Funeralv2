@@ -3,7 +3,7 @@
 
 @*
     [요청 등록] — DB 메뉴 `/helpdesk/request/new`. `POST requests` 는 폼을 읽는다(ReadFormAsync) — JSON 을 보내면 500. 칸 이름은 Title · Description.
-    첨부는 등록 뒤에 `POST files/upload` 로 따로 올린다. 등록은 됐는데 첨부가 실패할 수 있어 무엇이 됐는지 갈라서 말한다. 요청자는 언제나 글쓴이다(고객 번호를 보내지 않는다).
+    「등록」은 칸만 확인하고 곧바로 탭을 닫는다. 그림 올리기 · `POST requests` · `POST files/upload` 는 RequestSubmitter 가 뒤에서 마치고 결과를 토스트로 말한다(실패하면 쓰던 글을 임시 보관에 되돌려 둔다). 요청자는 언제나 글쓴이다(고객 번호를 보내지 않는다).
 *@
 
 @* 본문 그림은 request-editor.js 가 붙여넣기를 가로채 POST files/image 로 올리고 주소만 본문에 남긴다. 편집기가 data URI 를 두면 회로 한도(4MB)를 넘겨 화면이 끊긴다. 등록 직전에 남은 data URI 를 한 번 더 올린다(PendingImages). *@

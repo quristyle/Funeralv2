@@ -137,6 +137,25 @@ export function forget(key) {
     drop(key);
 }
 
+/// 화면 밖에서 등록하다 실패한 글을 되돌려 적는다. 그 사이 새로 적힌 글이 있으면 덮지 않고 false 를 준다.
+export function save(key, title, html) {
+    try {
+        if (localStorage.getItem(key)) return false;
+
+        const t = typeof title === 'string' ? title : '';
+        let payload = JSON.stringify({ t, h: typeof html === 'string' ? html : '', r: '', at: Date.now() });
+
+        if (payload.length > MAX_CHARS) {
+            payload = JSON.stringify({ t, h: '', r: '', at: Date.now() });
+        }
+
+        localStorage.setItem(key, payload);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 /// 지켜보기를 거둔다. alsoForget 이면 적어 둔 것도 버린다 — 등록에 성공한 뒤가 그 경우다(남기면 이미 등록한 글이 되살아나 두 번 들어간다).
 export function stop(key, alsoForget) {
     for (const w of [...watchers]) {

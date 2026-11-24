@@ -18,6 +18,9 @@ public partial class RequestManage : IDisposable
     /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
     [Inject] private ScreenState Screen { get; set; } = default!;
 
+    /// <summary>요청 등록이 뒤에서 마치는 창구. 등록 화면은 누르자마자 이 화면으로 넘어오므로 새 요청은 그 뒤에 들어온다.</summary>
+    [Inject] private RequestSubmitter Submitter { get; set; } = default!;
+
     // ── 현황판이 싣고 오는 조건 ──
     // 타일이 센 것과 같은 목록을 열려고 주소로 받는다. 주소 이름은 조회 칸과 일대일이다.
 
@@ -232,6 +235,8 @@ public partial class RequestManage : IDisposable
     /// 주소 조건이 있으면 맡겨 둔 짐보다 먼저 푼다(아니면 누른 타일 조건이 지난번 조건에 덮인다).</summary>
     protected override void OnInitialized()
     {
+        Submitter.Created += OnRequestCreated;
+
         if (ApplyQueryConditions())
         {
             _seeded = true;
@@ -316,11 +321,23 @@ public partial class RequestManage : IDisposable
 
     /// <summary>떠나면서 쓰던 모습을 맡긴다. 떠날 때 한 번만 담는다 — 읽어 둔 줄이 커서 글자마다 담으면 기록이 는다.
     /// 프리렌더에서도 불리며 그때는 빈 것을 맡긴다.</summary>
-    public void Dispose() =>
+    public void Dispose()
+    {
+        Submitter.Created -= OnRequestCreated;
+
         Screen.Set(StateKey, new Kept(
             _companyIds, _requesterId, _statuses, _adminId, _keyword, _onlyOpen,
             _basis, _from, _to,
             _rows, _total, _selected?.Id, _take, _batches));
+    }
+
+    /// <summary>뒤에서 등록이 끝났다 — 목록을 다시 읽어 방금 넣은 요청을 세운다. 맡겨 둔 목록으로 돌아온 길이라도 그렇다.</summary>
+    private void OnRequestCreated(int id) =>
+        _ = InvokeAsync(async () =>
+        {
+            await ReloadAsync();
+            StateHasChanged();
+        });
 
     // ── 주소로 들어온 조건 ──────────────────────────────────
 

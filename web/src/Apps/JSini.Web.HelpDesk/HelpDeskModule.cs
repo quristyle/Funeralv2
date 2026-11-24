@@ -55,5 +55,8 @@ public sealed class HelpDeskModule : IPortalModule
 
         // 요청 글 AI 두 가지(제목 짓기·요약)는 공용 AiChatClient 를 감싼 창구만 단다.
         services.AddScoped<RequestAi>();
+
+        // 요청 등록을 화면 밖에서 마치는 창구. 등록 화면이 닫힌 뒤에도 회로와 함께 살아 있어야 한다.
+        services.AddScoped<RequestSubmitter>();
     }
 }

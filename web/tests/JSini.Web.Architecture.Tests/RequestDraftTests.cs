@@ -85,13 +85,20 @@ public sealed class RequestDraftTests
     /// <remarks>
     /// 남겨 두면 다음에 이 화면을 열 때 <b>이미 등록한 글이 되살아나</b>
     /// 같은 요청이 두 번 들어간다. 임시 보관이 만드는 유일한 새 사고다.
+    /// 등록은 화면이 닫힌 뒤 뒤에서 마치므로(<c>RequestSubmitter</c>) 버리는 것은 넘기기 직전이고,
+    /// 실패하면 창구가 같은 열쇠로 되돌려 적는다 — 그 사이 새로 쓴 글은 덮지 않는다.
     /// </remarks>
     [Fact]
     public void 등록에_성공하면_적어_둔_것을_버린다()
     {
         Assert.Matches(
-            @"CreateAsync\([\s\S]{0,600}?ForgetDraftAsync\(andStop:\s*true\)",
+            @"ForgetDraftAsync\(andStop:\s*true\)[\s\S]{0,600}?Submitter\.Start\(",
             Page());
+
+        var submitter = RazorSource.Read(Path.Combine(
+            SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Api", "RequestSubmitter.cs"));
+        Assert.Matches(@"FailAsync[\s\S]{0,400}?RestoreDraftAsync", submitter);
+        Assert.Matches(@"export function save\([\s\S]{0,200}?localStorage\.getItem\(key\)\) return false", Script());
     }
 
     /// <summary>
