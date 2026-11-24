@@ -3,8 +3,8 @@
 
 @*
     [요청 처리] — DB 메뉴 `/helpdesk/request/manage`. `requests/srch` 는 POST 다(GET 은 requests/{id:int} 에 걸려 500). 조건·목록·고른 줄은 ScreenState 로 맡겼다가 되찾는다.
-    고객은 요청자가 나로 잠긴 채 열린다. 잠그는 자리는 셋이고 맨 끝인 ReloadAsync 가 진짜다 — 서버는 목록을 권한으로 거르지 않는다.
-    잠금 기준은 「관리자인가」다. 「고객 번호가 있나」로 가르면 첫 글 전 사람에게 회사 전체가 열린다. 번호가 없으면 잠근 채 아무것도 묻지 않는다.
+    시스템관리자가 아니면 회사가 제 회사로 못 박히고(이름만 적는다), 요청자는 같은 회사 사람 중에서 고른다. 고객은 나로 골라진 채 열린다.
+    못 박는 자리는 ReloadAsync 의 회사 조건이다 — 서버는 목록을 권한으로 거르지 않는다. 요청자 고르개는 서버(/customers)가 이미 제 회사 사람만 준다.
 *@
 
 @inherits DataPage
@@ -29,20 +29,20 @@
                           ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </CommSchItem>
         }
+        else
+        {
+            @* 제 회사로 못 박혀 고를 것이 없다. 고르개 대신 이름을 적는다 — ReadOnly 로 두면 지우개가 남는다. *@
+            <CommSchItem Label="회사">
+                <span class="jsini-text-muted">@MyCompanyName</span>
+            </CommSchItem>
+        }
 
-        @* 고객은 제 요청만 본다. 고르개 대신 제 이름을 적는다 — ReadOnly 로 두면 지우개가 남아 「전체」로 풀린다. 못 박는 자리는 ReloadAsync 다. *@
+        @* 고르개 목록은 SearchCompanyIds 로 좁힌다 — 시스템관리자가 아니면 제 회사 사람뿐이다. *@
         <CommSchItem Label="요청자">
-            @if (RequesterLocked)
-            {
-                <span class="jsini-text-muted">@RequesterName</span>
-            }
-            else
-            {
-                <DxComboBox Data="@RequesterFilterOptions" @bind-Value="_requesterId" @bind-Value:after="ReloadAsync"
-                            TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
-                            Style="width: 120px"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            }
+            <DxComboBox Data="@RequesterFilterOptions" @bind-Value="_requesterId" @bind-Value:after="ReloadAsync"
+                        TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
+                        Style="width: 120px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         @* 상태는 여럿 고른다. 현황판의 「협의」 타일은 협의·논의 둘을 세므로 하나짜리 고르개로는 같은 목록을 못 연다. 아무것도 안 고르면 「전체」라 「전체」 항목은 두지 않는다. *@

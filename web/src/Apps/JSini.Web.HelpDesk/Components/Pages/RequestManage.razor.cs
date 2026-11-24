@@ -65,7 +65,7 @@ public partial class RequestManage : IDisposable
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
-        Context.IsSystemAdmin ? CompanySummary : null,
+        Context.IsSystemAdmin ? CompanySummary : MyCompanyName,
         SchSummary.NameOf(RequesterFilterOptions, o => o.Value, o => o.Label, _requesterId),
         StatusSummary,
         SchSummary.NameOf(Context.AdminOptions, o => o.Value, o => o.Label, _adminId),
@@ -163,15 +163,8 @@ public partial class RequestManage : IDisposable
     /// _restored 로는 가를 수 없다 — 그 값은 줄이 있을 때만 참이라 조건만 되찾은 길에서는 거짓이다.</summary>
     private bool _seeded;
 
-    /// <summary>요청자 칸을 잠갔는가 — 고객이면 참(관리자가 아닌 모든 사람).
-    /// 고객 번호 유무로 가르면 번호 없는 고객까지 칸이 열려 같은 회사 전체가 보인다.</summary>
-    private bool RequesterLocked => Context.IsCustomer;
-
-    /// <summary>잠긴 칸에 적을 글자. 고르개가 아는 이름을 그대로 쓴다.</summary>
-    private string RequesterName =>
-        RequesterFilterOptions.FirstOrDefault(o => o.Value == _requesterId)?.Label
-        ?? Context.Identity?.UserName
-        ?? "나";
+    /// <summary>시스템관리자가 아닐 때 회사 칸에 적을 제 회사 이름. 회사 고르개(HELP_DESK 사용처)에 없으면 아이디가 나온다.</summary>
+    private string MyCompanyName => Context.CompanyId is { } mine ? Context.CompanyName(mine) : "-";
 
     private IReadOnlyList<BizOption> RequesterFilterOptions
     {
@@ -292,16 +285,12 @@ public partial class RequestManage : IDisposable
             _companyIds = [.. managed.Where(id => Context.CompanyOptions.Any(o => o.Value == id))];
         }
 
-        // 고객이면 요청자를 나로 고정하고 「처리 중인 것만」을 끈다. 가르는 것은 관리자 여부(IsAdmin) 하나다.
-        // 요청자 칸은 잠겨 있어 주소·돌아온 길에서도 언제나 나이고, 「처리 중인 것만」은 기본값만 바꾼다.
-        if (Context.CustomerId is { } me)
+        // 처음 여는 고객에게는 요청자를 나로 미리 고르고 「처리 중인 것만」을 끈다. 같은 회사 다른 사람으로 바꿀 수 있다.
+        // 주소·돌아온 길이면 그 조건을 그대로 둔다 — 현황판 타일은 회사 전체를 센다.
+        if (Context.CustomerId is { } me && !_seeded)
         {
             _requesterId = me.ToString(CultureInfo.InvariantCulture);
-
-            if (!_seeded)
-            {
-                _onlyOpen = false;
-            }
+            _onlyOpen = false;
         }
 
         // 돌아온 길이면 다시 묻지 않는다 — 300건을 다시 읽으면 조건을 다시 거는 것보다 느리고 표가 맨 위로 돌아간다.
@@ -402,15 +391,6 @@ public partial class RequestManage : IDisposable
         // 받아 둔 묶음도 버린다 — 안 버리면 다음 더 읽기가 새 조건의 쪽 넷을 달라고 한다.
         _batches = 0;
 
-        // 「내 것」을 가려낼 수 없으면 묻지 않는다 — 고객 줄이 없는 고객이 조건 없이 부르면 같은 회사 남의 요청이 나온다.
-        if (Context.IsCustomer && Context.CustomerId is null)
-        {
-            _rows = [];
-            _total = 0;
-            Say("아직 올리신 요청이 없습니다. 「요청 등록」으로 처음 글을 올리면 여기에 보입니다.");
-            return Task.CompletedTask;
-        }
-
         if (!Context.IsSystemAdmin && Context.CompanyId is null)
         {
             _rows = [];
@@ -504,14 +484,10 @@ public partial class RequestManage : IDisposable
 
         ApplyPeriod(query);
 
-        // 고객은 제 것만 본다 — 서버는 권한으로 거르지 않으므로 화면이 조건을 빠뜨리면 그대로 샌다.
-        // 맡겨 둔 짐의 번호도 여기서 덮인다. 번호가 없는 고객은 위에서 돌려보낸다.
-        var requesterId = Context.CustomerId?.ToString(CultureInfo.InvariantCulture)
-            ?? _requesterId;
-
-        if (!string.IsNullOrWhiteSpace(requesterId))
+        // 요청자를 남의 회사 사람으로 적어 보내도 아래 회사 조건이 제 회사 밖을 막는다 — 서버는 권한으로 거르지 않는다.
+        if (!string.IsNullOrWhiteSpace(_requesterId))
         {
-            query["customerId"] = requesterId;
+            query["customerId"] = _requesterId;
         }
 
         if (!string.IsNullOrWhiteSpace(_adminId))
