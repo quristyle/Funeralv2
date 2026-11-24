@@ -45,6 +45,10 @@ public abstract class RequestRowList : ComponentBase
         }
     }
 
+    /// <summary>첨부파일 수. 본문에 박은 그림은 세지 않는다 — 내려받을 파일이 있는지를 보이는 자리다.</summary>
+    protected static int AttachmentCount(ImprovementRequest r) =>
+        r.AttachmentCount ?? r.Attachments?.Count ?? 0;
+
     /// <summary>글을 쓸 때의 회사 이름. 서버가 주는 것은 아이디뿐이다.</summary>
     protected string CompanyName(ImprovementRequest r) =>
         Context.CompanyName(r.CompanyId ?? r.Customer?.CompanyId);

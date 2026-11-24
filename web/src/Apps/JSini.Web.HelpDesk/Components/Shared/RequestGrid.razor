@@ -62,6 +62,10 @@
                         {
                             <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;">댓글 @r.Comments.Count</span>
                         }
+                        @if (AttachmentCount(r) is > 0 and var files)
+                        {
+                            <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;" title="첨부파일 @(files)개">📎 @files</span>
+                        }
                     </div>
                 </div>
             </CellDisplayTemplate>
