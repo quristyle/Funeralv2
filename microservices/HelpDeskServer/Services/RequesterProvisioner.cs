@@ -36,7 +36,8 @@ public class RequesterProvisioner : IRequesterProvisioner {
 
     // 1. 고객으로 연결된 계정은 언제나 자기 자신이다. 남의 이름으로 쓸 수 없다.
     if (me.IsCustomer && me.HelpdeskUserId is { } linked
-        && await _db.Customers.AnyAsync(c => c.Id == linked, ct)) {
+        && await _db.Customers.FirstOrDefaultAsync(c => c.Id == linked, ct) is { } self) {
+      await FillCompanyAsync(self, me, auditUser, ct);
       return linked;
     }
 
@@ -88,8 +89,28 @@ public class RequesterProvisioner : IRequesterProvisioner {
           "포털 계정 {LoginId} 의 요청자(고객) 줄을 새로 만들었습니다 — customer#{Id}.", loginId, mine.Id);
     }
 
+    else {
+      await FillCompanyAsync(mine, me, auditUser, ct);
+    }
+
     await LinkAsync(loginId, mine.Id, auditUser, ct);
     return mine.Id;
+  }
+
+  /// <summary>
+  /// 회사가 빈 고객 줄을 지금 토큰의 포털 회사로 채운다. 계정을 만들고 회사를 나중에 매면 첫 글 때 토큰에 회사가 없어
+  /// 빈 채로 만들어지는데, 그 줄은 회사 걸름에서 통째로 빠져 같은 회사 사람에게도 안 보인다. 이미 있는 회사는 바꾸지 않는다.
+  /// </summary>
+  private async Task FillCompanyAsync(Customer customer, HelpdeskPrincipal me, string auditUser, CancellationToken ct) {
+    if (!string.IsNullOrWhiteSpace(customer.CompanyId) || !me.HasCompany) return;
+
+    customer.CompanyId = me.CompanyId;
+    customer.ModifiedBy = auditUser;
+    customer.ModifiedAt = DateTime.UtcNow;
+    await _db.SaveChangesAsync(ct);
+
+    _logger.LogInformation(
+        "customer#{Id} 의 빈 회사를 포털 회사 {CompanyId} 로 채웠습니다.", customer.Id, me.CompanyId);
   }
 
   /// <summary>다음부터는 신원 해석이 이 줄을 바로 찾도록 연결을 남긴다. 이미 연결이 있으면 손대지 않는다.</summary>
