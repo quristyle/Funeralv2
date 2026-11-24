@@ -95,9 +95,17 @@ public partial class HeaderTools
     /// <summary>AI 일정 메모 단추를 그릴 수 있나. 일정표 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
     private bool CanShowScheduleNote => HasScheduleNotePermission && HeaderIcons.IsIconEnabled("schedule_note");
 
-    /// <summary>쪽지 단추를 그릴 수 있나. 메뉴 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
-    private bool CanShowNote => (MenuLookup.Find(Menus.VisibleMenus, "admin.note.write", "/admin/note/write") != null || Permissions.CanView("/admin/note/write"))
-                                && HeaderIcons.IsIconEnabled("note");
+    private const string NoteWriteRouteKey = "admin.note.write";
+
+    private const string NoteWritePath = "/admin/note/write";
+
+    /// <summary>쪽지 쓰기(/admin/note/write) 화면을 쓸 수 있나. 권한표를 받기 전에는 <c>CanView</c> 가 늘 참이라, 받은 뒤에만 판정해 권한 없는 사람에게 단추가 스치지 않게 한다.</summary>
+    private bool HasNotePermission =>
+        Permissions.IsLoaded
+        && (MenuLookup.Find(Menus.VisibleMenus, NoteWriteRouteKey, NoteWritePath) != null || Permissions.CanView(NoteWritePath));
+
+    /// <summary>쪽지 단추를 그릴 수 있나. 쪽지 쓰기 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
+    private bool CanShowNote => HasNotePermission && HeaderIcons.IsIconEnabled("note");
 
     /// <summary>알림 단추를 그릴 수 있나. 메뉴 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
     private bool CanShowNotification => (MenuLookup.Find(Menus.VisibleMenus, "admin.push.history", "/system/push/history") != null || Permissions.CanView("/system/push/history"))
@@ -278,6 +286,11 @@ public partial class HeaderTools
     /// <summary>✉ 를 눌렀다. 휴대폰에서는 사용자 판이 뒤에 깔린 채 남으므로 먼저 접는다.</summary>
     private void OpenNote()
     {
+        if (!HasNotePermission)
+        {
+            return;
+        }
+
         UserDrawer.Close();
         _writing = true;
     }
