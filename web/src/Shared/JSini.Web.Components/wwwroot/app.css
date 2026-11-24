@@ -2023,7 +2023,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   min-width: 0;
 }
 
-/* 라벨은 칸 왼쪽에 붙는다. 조건이 대개 둘에서 넷이라 한 줄에 다 들어가 판이 한 줄 높이로 끝난다. */
+/* 테두리가 있는 편집기의 라벨은 칸 왼쪽 위 테두리에 얹힌다(tabler.css). 여기 모양은 라벨이 칸 앞에 서는 칸의 것이다. */
 .commsch__item {
   display: flex;
   align-items: center;
@@ -2047,8 +2047,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     gap: 0.6rem 1rem;
   }
 
-/* 기둥 안에서도 입력칸의 왼쪽 끝을 맞춘다. 짧은 라벨에 최소 폭을 주고 오른쪽으로 붙인다. */
-  .commsch:not(.commsch--stacked) .commsch__fields:has(> .commsch__item:nth-child(6)) .commsch__label {
+/* 라벨이 칸 앞에 서는 칸(체크칸 따위)도 기둥 안에서 입력칸의 왼쪽 끝을 맞춘다. 테두리에 얹히는 라벨은 tabler.css 가 맡는다. */
+  .commsch:not(.commsch--stacked) .commsch__fields:has(> .commsch__item:nth-child(6)) .commsch__item:not(:has(.dxbl-text-edit)) > .commsch__label {
     flex: 0 0 auto;
     min-width: 4.25rem;
     text-align: right;
@@ -2235,8 +2235,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     width: min(100%, 18rem) !important;
   }
 
-/* 라벨이 칸 앞에 서는데 길이가 제각각이라 좁은 화면에서 칸의 왼쪽 끝이 들쭉날쭉해진다. 짧은 라벨에 최소 폭을 주어 기둥을 맞춘다. */
-  .commsch__item > .commsch__label {
+/* 칸 앞에 서는 라벨은 길이가 제각각이라 좁은 화면에서 칸의 왼쪽 끝이 들쭉날쭉해진다. 짧은 라벨에 최소 폭을 주어 기둥을 맞춘다. */
+  .commsch__item:not(:has(.dxbl-text-edit)) > .commsch__label {
     flex: 0 0 auto;
     min-width: 3.25rem;
   }
