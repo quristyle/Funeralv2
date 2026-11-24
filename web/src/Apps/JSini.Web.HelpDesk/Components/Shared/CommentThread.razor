@@ -7,13 +7,24 @@
 <ul class="hd-cmts">
     @foreach (var node in Nodes)
     {
-        <li class="hd-cmt" id="@($"comment-{node.Comment.Id}")">
+        <li class="@CmtClass(node)" id="@($"comment-{node.Comment.Id}")">
             <div class="hd-cmt__head">
                 @* 사진의 정본은 포털 계정이다. 업무 DB 의 사진 칸은 비어 있는 것이 보통이라 로그인 아이디로 얼굴을 묻는다. *@
                 <UserAvatar LoginId="@node.Comment.CreatedBy"
                             Name="@AuthorName(node)"
                             CssClass="hd-cmt__avatar" />
-                <span class="hd-cmt__when">@When(node)</span>
+                @if (IsFailed(node))
+                {
+                    <span class="hd-cmt__when hd-cmt__when--failed">보내지 못했습니다</span>
+                }
+                else if (IsPending(node))
+                {
+                    <span class="hd-cmt__when hd-cmt__when--pending">보내는 중…</span>
+                }
+                else
+                {
+                    <span class="hd-cmt__when">@When(node)</span>
+                }
 
                 @if (node.Children.Count > 0)
                 {
@@ -53,7 +64,22 @@
                 }
             }
 
-            @if (!node.Comment.IsDel && (CanReply || CanDelete(node)))
+            @if (IsFailed(node))
+            {
+                <div class="hd-cmt__acts">
+                    <DxButton Text="다시 보내기"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              SizeMode="SizeMode.Small"
+                              CssClass="hd-cmt__act hd-cmt__act--text"
+                              Click="@(() => OnRetry.InvokeAsync(node.Comment.Id))" />
+                    <DxButton Text="버리기"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              SizeMode="SizeMode.Small"
+                              CssClass="hd-cmt__act hd-cmt__act--text hd-cmt__act--del"
+                              Click="@(() => OnDiscard.InvokeAsync(node.Comment.Id))" />
+                </div>
+            }
+            else if (!IsPending(node) && !node.Comment.IsDel && (CanReply || CanDelete(node)))
             {
                 <div class="hd-cmt__acts">
                     @if (CanReply)
@@ -100,7 +126,10 @@
                                    CurrentUserType="@CurrentUserType"
                                    OnToggle="@OnToggle"
                                    OnReply="@OnReply"
-                                   OnDelete="@OnDelete" />
+                                   OnDelete="@OnDelete"
+                                   FailedIds="@FailedIds"
+                                   OnRetry="@OnRetry"
+                                   OnDiscard="@OnDiscard" />
                 </div>
             }
         </li>

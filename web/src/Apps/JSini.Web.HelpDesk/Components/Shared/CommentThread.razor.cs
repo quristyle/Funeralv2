@@ -34,6 +34,25 @@ public partial class CommentThread
     /// <summary>지금 보고 있는 사람의 계정 종류 ("admin" 또는 "customer").</summary>
     [Parameter] public string? CurrentUserType { get; set; }
 
+    /// <summary>보내지 못한 댓글 번호들(음수). 그 줄에 「다시 보내기 · 버리기」가 선다.</summary>
+    [Parameter] public IReadOnlySet<int>? FailedIds { get; set; }
+
+    /// <summary>보내지 못한 댓글을 다시 보낸다.</summary>
+    [Parameter] public EventCallback<int> OnRetry { get; set; }
+
+    /// <summary>보내지 못한 댓글을 버린다.</summary>
+    [Parameter] public EventCallback<int> OnDiscard { get; set; }
+
+    /// <summary>아직 서버에 안 들어간 줄인가. 화면이 음수 번호로 끼워 둔다 — 답글·삭제를 걸 번호가 아직 없다.</summary>
+    private static bool IsPending(CommentNode node) => node.Comment.Id < 0;
+
+    private bool IsFailed(CommentNode node) => IsPending(node) && FailedIds?.Contains(node.Comment.Id) == true;
+
+    private string CmtClass(CommentNode node) =>
+        IsFailed(node) ? "hd-cmt hd-cmt--failed"
+        : IsPending(node) ? "hd-cmt hd-cmt--pending"
+        : "hd-cmt";
+
     private bool CanDelete(CommentNode node)
     {
         if (!CanDeleteComment) return false;

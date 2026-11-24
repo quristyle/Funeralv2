@@ -265,8 +265,8 @@ public partial class RequestDetail : IDisposable
         _request = request.Result;
         _attachments = AttachmentsOf(_request);
         _images = _attachments.Where(RequestThumb.IsImage).ToList();
-        _commentCount = comments.Result.Count;
-        _roots = CommentTree.Build(comments.Result);
+        _comments = comments.Result;
+        Rebuild();
 
         // 제목이 왔으니 탭 이름을 갈아 준다.
         Tabs.Open(Href, TabTitle, standalone: true);
@@ -339,7 +339,8 @@ public partial class RequestDetail : IDisposable
         {
             while (await timer.WaitForNextTickAsync(token))
             {
-                if (_notFound || _replyTo is not null)
+                // 보내는 중인 것이 있으면 건너뛴다 — 저장은 됐는데 갈아 끼우기 전이면 같은 댓글이 두 줄로 보인다.
+                if (_notFound || _replyTo is not null || _pending.Any(p => !p.Failed))
                 {
                     continue;
                 }
@@ -348,13 +349,13 @@ public partial class RequestDetail : IDisposable
                 {
                     var comments = await Api.GetListAsync<ImprovementComment>($"requests/{Id}/comments");
 
-                    if (comments.Count == _commentCount)
+                    if (comments.Count == _comments.Count)
                     {
                         continue;
                     }
 
-                    _commentCount = comments.Count;
-                    _roots = CommentTree.Build(comments);
+                    _comments = comments;
+                    Rebuild();
 
                     await InvokeAsync(StateHasChanged);
                 }
@@ -373,6 +374,14 @@ public partial class RequestDetail : IDisposable
     /// <summary>떠날 때 들여다보기를 멈춘다.</summary>
     public void Dispose()
     {
+        _disposed = true;
+
+        // 보내는 중인 것은 끝까지 간다(화면을 떠나도 댓글은 저장된다). 못 보낸 것의 사본만 치운다.
+        foreach (var pending in _pending.Where(p => p.Failed))
+        {
+            DeleteFiles(pending.Files);
+        }
+
         _watch?.Cancel();
         _watch?.Dispose();
         _watch = null;
@@ -405,60 +414,264 @@ public partial class RequestDetail : IDisposable
     /// <summary>댓글에 다는 답글. 깊이는 따지지 않는다 — 대댓글도 같은 길이다.</summary>
     private Task<bool> AddReplyAsync(int parentId, string html, IReadOnlyList<PickedFile> files) => AddAsync(parentId, html, files);
 
-    /// <summary>댓글을 남긴다. 돌려주는 값이 편집기를 비울지를 정한다.</summary>
-    private async Task<bool> AddAsync(int? parentCommentId, string html, IReadOnlyList<PickedFile> files)
+    /// <summary>댓글을 남긴다. 저장을 기다리지 않는다 — 「보내는 중」 댓글을 바로 목록에 끼우고 편집기를 비운 뒤,
+    /// 저장·첨부·목록 갱신은 뒤에서 한다. 서버가 저장하면서 알림(앱푸시)까지 다 보내고 답하므로 그 사이 화면이 멈춘 것처럼 보였다.</summary>
+    private Task<bool> AddAsync(int? parentCommentId, string html, IReadOnlyList<PickedFile> files)
     {
         if (IsFinished)
         {
             Say("완료되거나 종료된 요청에는 댓글을 남길 수 없습니다.", NoticeTone.Warning);
-            return false;
+            return Task.FromResult(false);
         }
 
         if (!int.TryParse(Id, out var requestId))
         {
             Say("요청 번호를 읽지 못했습니다.", NoticeTone.Error);
-            return false;
+            return Task.FromResult(false);
         }
 
-        ImprovementComment? created = null;
-        var added = await RunAsync(
-            async () =>
-            {
-                created = await Api.PostAsync<ImprovementComment>("comments", new
-                {
-                    requestId,
-                    commentText = html,
-
-                    // 칸 이름이 어긋나면 조용히 뿌리 댓글로 들어간다.
-                    parentCommentId,
-
-                    // 담당자와 고객은 번호 체계가 달라 종류를 함께 보낸다.
-                    authorType = Context.Identity?.LoginType ?? "admin",
-                    authorId = Context.HelpdeskUserId ?? 0,
-                });
-            },
-            "남겼습니다.", "남기지 못했습니다");
-
-        if (added && created is not null)
+        // 편집기는 참을 받으면 제 첨부 목록을 비우며 임시 파일을 지운다 — 뒤에서 올릴 것은 미리 옮겨 둔다.
+        List<PickedFile> copies;
+        try
         {
-            var commentId = created.Id;
-            if (files.Count > 0)
-            {
-                var failedUploads = await UploadFilesAsync(commentId, files);
-                if (failedUploads > 0)
-                {
-                    Say($"{failedUploads}개 첨부파일을 올리지 못했습니다.", NoticeTone.Warning);
-                }
-            }
-
-            _replyTo = null;
-            await ReloadAsync();
+            copies = CopyFiles(files);
         }
+        catch (IOException ex)
+        {
+            Say($"첨부파일을 준비하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return Task.FromResult(false);
+        }
+
+        var me = Context.Identity;
+        var pending = new PendingComment
+        {
+            Comment = new ImprovementComment
+            {
+                // 음수 번호가 「아직 저장 안 됨」 표시다. 서버 번호와 겹치지 않는다.
+                Id = --_pendingSeq,
+                RequestId = requestId,
+                CommentText = html,
+                ParentCommentId = parentCommentId,
+
+                // 담당자와 고객은 번호 체계가 달라 종류를 함께 보낸다.
+                AuthorType = me?.LoginType ?? "admin",
+                AuthorId = Context.HelpdeskUserId ?? 0,
+                CreatedAt = AppTime.UtcNow,
+                CreatedBy = me?.JsiniUserId,
+                Author = new CommentAuthor
+                {
+                    UserName = me?.HelpdeskUserName ?? me?.JsiniUserName ?? me?.UserName,
+                },
+            },
+            Files = copies,
+        };
+
+        _pending.Add(pending);
+        _replyTo = null;
+        Rebuild();
 
         // 값을 돌려주는 대리자라 Blazor 가 스스로 다시 그리지 않는다.
         StateHasChanged();
 
-        return added && created is not null;
+        _ = SendAsync(pending);
+
+        return Task.FromResult(true);
+    }
+
+    /// <summary>아직 서버에 안 들어간 댓글. 화면에는 서버 목록 뒤에 붙어 「보내는 중」으로 보인다.</summary>
+    private sealed class PendingComment
+    {
+        public required ImprovementComment Comment { get; init; }
+
+        /// <summary>편집기의 임시 파일을 옮겨 둔 사본. 보내고 나면(또는 버리면) 지운다.</summary>
+        public required List<PickedFile> Files { get; init; }
+
+        public bool Failed { get; set; }
+    }
+
+    /// <summary>서버가 준 댓글. 「보내는 중」인 것은 따로 든다(<see cref="_pending"/>).</summary>
+    private IReadOnlyList<ImprovementComment> _comments = [];
+
+    private readonly List<PendingComment> _pending = [];
+
+    private int _pendingSeq;
+
+    private bool _disposed;
+
+    /// <summary>보내지 못한 댓글 번호들. 댓글 나무가 「다시 보내기」를 그 줄에 세운다.</summary>
+    private IReadOnlySet<int> FailedIds => _pending.Where(p => p.Failed).Select(p => p.Comment.Id).ToHashSet();
+
+    /// <summary>서버 목록과 보내는 중인 것을 합쳐 나무를 다시 세운다.</summary>
+    private void Rebuild()
+    {
+        _commentCount = _comments.Count + _pending.Count;
+        _roots = CommentTree.Build(_comments.Concat(_pending.Select(p => p.Comment)));
+    }
+
+    /// <summary>뒤에서 저장한다. 다 되면 댓글 목록만 다시 읽어 「보내는 중」 줄을 진짜 줄로 한 번에 갈아 끼운다 — 요청 본문까지 다시 읽지 않는다.</summary>
+    private async Task SendAsync(PendingComment pending)
+    {
+        var c = pending.Comment;
+        ImprovementComment? created;
+
+        try
+        {
+            created = await Api.PostAsync<ImprovementComment>("comments", new
+            {
+                requestId = c.RequestId,
+                commentText = c.CommentText,
+
+                // 칸 이름이 어긋나면 조용히 뿌리 댓글로 들어간다.
+                parentCommentId = c.ParentCommentId,
+                authorType = c.AuthorType,
+                authorId = c.AuthorId,
+            });
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or JsonException or TaskCanceledException)
+        {
+            pending.Failed = true;
+            Say($"댓글을 남기지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            await RefreshAsync();
+            return;
+        }
+
+        if (created is null)
+        {
+            pending.Failed = true;
+            Say("댓글을 남기지 못했습니다 — 서버가 빈 답을 주었습니다.", NoticeTone.Error);
+            await RefreshAsync();
+            return;
+        }
+
+        if (pending.Files.Count > 0)
+        {
+            var failedUploads = await UploadFilesAsync(created.Id, pending.Files);
+            if (failedUploads > 0)
+            {
+                Say($"{failedUploads}개 첨부파일을 올리지 못했습니다.", NoticeTone.Warning);
+            }
+        }
+
+        DeleteFiles(pending.Files);
+
+        IReadOnlyList<ImprovementComment>? fresh = null;
+        try
+        {
+            fresh = await Api.GetListAsync<ImprovementComment>($"requests/{Id}/comments");
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or JsonException or TaskCanceledException)
+        {
+            // 목록을 못 읽었으면 받은 한 줄로 갈음한다. 첨부는 다음 되읽기(20초)에 붙는다.
+        }
+
+        _pending.Remove(pending);
+
+        if (fresh is not null)
+        {
+            _comments = fresh;
+        }
+        else
+        {
+            created.Author ??= c.Author;
+            created.CreatedBy ??= c.CreatedBy;
+            _comments = [.. _comments, created];
+        }
+
+        Rebuild();
+        await RefreshAsync();
+    }
+
+    /// <summary>보내지 못한 댓글을 다시 보낸다.</summary>
+    private Task RetryCommentAsync(int pendingId)
+    {
+        var pending = _pending.FirstOrDefault(p => p.Comment.Id == pendingId && p.Failed);
+        if (pending is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (IsFinished)
+        {
+            Say("완료되거나 종료된 요청에는 댓글을 남길 수 없습니다.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        pending.Failed = false;
+        _ = SendAsync(pending);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>보내지 못한 댓글을 버린다.</summary>
+    private void DiscardComment(int pendingId)
+    {
+        var pending = _pending.FirstOrDefault(p => p.Comment.Id == pendingId && p.Failed);
+        if (pending is null)
+        {
+            return;
+        }
+
+        DeleteFiles(pending.Files);
+        _pending.Remove(pending);
+        Rebuild();
+    }
+
+    /// <summary>뒤에서 바뀐 것을 화면에 올린다. 화면을 떠났으면 그리지 않는다.</summary>
+    private async Task RefreshAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // 회로가 닫히는 중이다.
+        }
+    }
+
+    private static List<PickedFile> CopyFiles(IReadOnlyList<PickedFile> files)
+    {
+        var copies = new List<PickedFile>(files.Count);
+        try
+        {
+            foreach (var file in files)
+            {
+                var path = Path.Combine(Path.GetTempPath(), $"hd-cmt-{Guid.NewGuid():N}");
+                File.Copy(file.TempPath, path);
+                copies.Add(file with { TempPath = path });
+            }
+        }
+        catch
+        {
+            DeleteFiles(copies);
+            throw;
+        }
+
+        return copies;
+    }
+
+    private static void DeleteFiles(IEnumerable<PickedFile> files)
+    {
+        foreach (var file in files)
+        {
+            try
+            {
+                File.Delete(file.TempPath);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     /// <summary>댓글 첨부파일을 올리고 실패한 개수를 돌려준다.</summary>

@@ -1048,6 +1048,37 @@
   color: var(--bs-danger, #d63939);
 }
 
+/* 글자 단추(다시 보내기 · 버리기). 아이콘 단추의 동그란 모양을 풀어 준다. */
+.hd-cmt__acts .dxbl-btn.hd-cmt__act--text {
+  padding: 0.15rem 0.4rem;
+  font-size: var(--jsini-fs-xs);
+  border-radius: var(--jsini-radius, 6px);
+}
+
+/* 저장을 기다리지 않고 먼저 끼워 둔 댓글. 흐리게만 두고 자리는 그대로 — 갈아 끼울 때 줄이 튀지 않는다. */
+.hd-cmt--pending > .hd-cmt__body,
+.hd-cmt--pending > .hd-cmt__head {
+  opacity: 0.6;
+}
+
+.hd-cmt__when--pending {
+  animation: hd-cmt-pending 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes hd-cmt-pending {
+  from { opacity: 1; }
+  to { opacity: 0.4; }
+}
+
+.hd-cmt--failed {
+  border-color: var(--bs-danger, #d63939);
+}
+
+.hd-cmt__when--failed {
+  color: var(--bs-danger, #d63939);
+  font-weight: 600;
+}
+
 .hd-cmt__write {
   margin-top: 0.5rem;
 }

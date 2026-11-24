@@ -197,7 +197,10 @@
                            CurrentUserType="@(Context.Identity?.LoginType ?? "admin")"
                            OnToggle="@ToggleReply"
                            OnReply="@AddReplyAsync"
-                           OnDelete="@DeleteCommentAsync" />
+                           OnDelete="@DeleteCommentAsync"
+                           FailedIds="@FailedIds"
+                           OnRetry="@RetryCommentAsync"
+                           OnDiscard="@DiscardComment" />
         }
 
         @if (Context.IdentityChecked)
