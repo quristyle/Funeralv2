@@ -451,7 +451,7 @@ public static class RequestEndpoints {
 
 
     // 요청 생성
-    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRequesterProvisioner requesters, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IHttpClientFactory httpClientFactory) => {
+    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRequesterProvisioner requesters, IPortalCompanyDirectory companies, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IHttpClientFactory httpClientFactory) => {
       var form = await httpRequest.ReadFormAsync();
       var me = httpRequest.HttpContext.GetHelpdeskPrincipal();
 
@@ -464,6 +464,13 @@ public static class RequestEndpoints {
       // 포털 신원이 없는 요청(헬프데스크 자체 토큰)만 여기로 온다 — 예외 대신 안내로 돌려준다.
       if (requesterId is not { } customerId) {
         return ApiResponseBuilder.Fail("요청자(고객)를 정하지 못했습니다. 포털로 다시 로그인한 뒤 등록해 주십시오.");
+      }
+
+      // 회사를 골라 보냈으면 고를 수 있는 회사인지 본다(RequestCompanyPolicy). 안 보냈으면 요청자의 회사다.
+      var pickedCompany = form["CompanyId"].ToString().Trim();
+      if (pickedCompany.Length > 0
+          && !await RequestCompanyPolicy.CanPickAsync(me, pickedCompany, companies, httpRequest.HttpContext.RequestAborted)) {
+        return ApiResponseBuilder.Fail("그 회사로는 요청을 등록할 수 없습니다.");
       }
 
       var requestDto = new RequestCreateDto(
@@ -482,7 +489,9 @@ public static class RequestEndpoints {
           Title = requestDto.Title,
           CustomerId = requestDto.CustomerId,
           // 요청자 줄은 방금 포털 회사로 맞춰졌다(RequesterProvisioner). 그 값을 글에 박아 둔다.
-          CompanyId = await db.Customers.Where(c => c.Id == requestDto.CustomerId).Select(c => c.CompanyId).FirstOrDefaultAsync(),
+          CompanyId = pickedCompany.Length > 0
+              ? pickedCompany
+              : await db.Customers.Where(c => c.Id == requestDto.CustomerId).Select(c => c.CompanyId).FirstOrDefaultAsync(),
           Status = ImprovementStatus.Pending,
           CreatedBy = requestDto.CreatedBy ?? string.Empty,
           MenuContext = requestDto.MenuContext,

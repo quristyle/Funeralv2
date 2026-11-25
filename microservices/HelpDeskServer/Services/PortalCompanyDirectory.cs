@@ -10,6 +10,9 @@ public interface IPortalCompanyDirectory {
 
   /// <summary>회사 하나의 이름. 모르면 null.</summary>
   Task<string?> GetNameAsync(string? companyId, CancellationToken ct = default);
+
+  /// <summary>이 로그인 아이디가 포털관리 「사용처 담당자」에서 헬프데스크(HELP_DESK) 담당으로 걸린 회사들. 못 읽으면 빈 목록 — 판정은 막는 쪽으로 떨어진다.</summary>
+  Task<IReadOnlyList<string>> GetManagedCompanyIdsAsync(string loginId, CancellationToken ct = default);
 }
 
 /// <inheritdoc />
@@ -62,6 +65,43 @@ public sealed class PortalCompanyDirectory : IPortalCompanyDirectory {
 
     var names = await GetNamesAsync(ct);
     return names.TryGetValue(companyId, out var name) ? name : null;
+  }
+
+  /// <inheritdoc />
+  public async Task<IReadOnlyList<string>> GetManagedCompanyIdsAsync(string loginId, CancellationToken ct = default) {
+    var baseUrl = _configuration[BaseUrlKey]?.TrimEnd('/');
+    if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(loginId)) return [];
+
+    try {
+      var client = _httpClientFactory.CreateClient();
+      client.Timeout = TimeSpan.FromSeconds(10);
+
+      // 게이트웨이를 거치지 않으므로 AuthServer 가 읽는 신원 헤더를 직접 싣는다. /mine 은 그 사람의 것만 준다.
+      using var request = new HttpRequestMessage(
+          HttpMethod.Get, $"{baseUrl}/system/company-usage-managers/mine?codeValue=HELP_DESK");
+      request.Headers.Add("X-User-Id", loginId);
+
+      using var response = await client.SendAsync(request, ct);
+      response.EnsureSuccessStatusCode();
+
+      await using var stream = await response.Content.ReadAsStreamAsync(ct);
+      using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+      if (!json.RootElement.TryGetProperty("data", out var data)
+          || !data.TryGetProperty("result", out var rows)
+          || rows.ValueKind != JsonValueKind.Array) {
+        return [];
+      }
+
+      return [.. rows.EnumerateArray()
+          .Where(r => r.ValueKind == JsonValueKind.String)
+          .Select(r => r.GetString()!)
+          .Where(id => !string.IsNullOrWhiteSpace(id))];
+    }
+    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException) {
+      _logger.LogWarning(ex, "{LoginId} 의 헬프데스크 담당 회사를 읽지 못했습니다 ({BaseUrl}).", loginId, baseUrl);
+      return [];
+    }
   }
 
   private async Task<IReadOnlyDictionary<string, string>> FetchAsync(CancellationToken ct) {

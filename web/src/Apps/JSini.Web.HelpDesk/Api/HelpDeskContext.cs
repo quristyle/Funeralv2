@@ -29,6 +29,64 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
         }
     }
 
+    private Task<IReadOnlyList<BizOption>>? _allCompaniesLoading;
+
+    /// <summary>포털의 회사 전부(이름 순). 사용처로 좁히지 않는다 — 요청 등록의 시스템관리자 고르개와 회사 이름 풀기에 쓴다. 못 읽으면 빈 목록.</summary>
+    public Task<IReadOnlyList<BizOption>> LoadAllCompaniesAsync() =>
+        _allCompaniesLoading ??= LoadAllCompaniesCoreAsync();
+
+    private async Task<IReadOnlyList<BizOption>> LoadAllCompaniesCoreAsync()
+    {
+        try
+        {
+            var rows = await gateway.GetListAsync<PortalCompany>("auth/system/companies");
+            return [.. rows
+                .Where(r => !string.IsNullOrWhiteSpace(r.Id))
+                .Select(r => new BizOption(string.IsNullOrWhiteSpace(r.Name) ? r.Id! : r.Name!, r.Id))
+                .OrderBy(o => o.Label, StringComparer.CurrentCulture)];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private sealed class PortalCompany
+    {
+        public string? Id { get; set; }
+        public string? Name { get; set; }
+    }
+
+    /// <summary>
+    /// 요청 등록에서 고를 수 있는 회사. 서버의 RequestCompanyPolicy 와 같은 규칙이다 —
+    /// 시스템관리자는 모든 회사, 헬프데스크 관리자는 「사용처 담당자」(HELP_DESK)로 맡은 회사, 그 밖에는 자기 회사 하나.
+    /// 맡은 회사가 없는 관리자는 자기 회사로 떨어진다.
+    /// </summary>
+    public async Task<IReadOnlyList<BizOption>> LoadRequestCompanyOptionsAsync()
+    {
+        await LoadIdentityAsync();
+        var all = await LoadAllCompaniesAsync();
+
+        BizOption Option(string id) =>
+            new(all.FirstOrDefault(o => o.Value == id)?.Label ?? id, id);
+
+        if (IsSystemAdmin && all.Count > 0)
+        {
+            return all;
+        }
+
+        if (IsHelpdeskManager)
+        {
+            var managed = await LoadManagedCompanyIdsAsync();
+            if (managed.Count > 0)
+            {
+                return [.. managed.Distinct().Select(Option).OrderBy(o => o.Label, StringComparer.CurrentCulture)];
+            }
+        }
+
+        return CompanyId is { } mine ? [Option(mine)] : [];
+    }
+
     /// <summary>현재 계정이 해석된 신원. 연결이 없으면 null.</summary>
     public HelpdeskIdentity? Identity { get; private set; }
 
@@ -42,6 +100,10 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     /// <summary>시스템관리자인가. 일반 헬프데스크 담당자 권한과는 구분한다.</summary>
     public bool IsSystemAdmin => Identity?.JsiniRoles.Any(role =>
         string.Equals(role, "SYSTEM_ADMINISTRATOR", StringComparison.OrdinalIgnoreCase)) == true;
+
+    /// <summary>헬프데스크 관리자(포털 역할 HELPDESK_MANAGER)인가. 「사용처 담당자」로 맡은 회사의 이름으로 요청을 올릴 수 있다.</summary>
+    public bool IsHelpdeskManager => Identity?.JsiniRoles.Any(role =>
+        string.Equals(role, "HELPDESK_MANAGER", StringComparison.OrdinalIgnoreCase)) == true;
 
     /// <summary>헬프데스크 내부 레코드에 이어져 있는가.</summary>
     public bool IsLinked => Identity?.HelpdeskUserId is not null;

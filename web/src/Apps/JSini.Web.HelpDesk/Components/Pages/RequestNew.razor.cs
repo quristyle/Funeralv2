@@ -19,6 +19,7 @@ public partial class RequestNew
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
     [Inject] private RequestSubmitter Submitter { get; set; } = default!;
+    [Inject] private HelpDeskContext Context { get; set; } = default!;
 
     /// <summary>이 화면의 탭 주소. 등록을 마치면 이 탭을 닫는다.</summary>
     private const string Href = "/helpdesk/request/new";
@@ -50,6 +51,12 @@ public partial class RequestNew
     private const int MaxPastedImages = 10;
 
     private string? _title;
+
+    /// <summary>요청이 걸릴 회사의 고르개 목록(HelpDeskContext.LoadRequestCompanyOptionsAsync). 하나뿐이면 고정으로 보인다.</summary>
+    private IReadOnlyList<BizOption> _companies = [];
+
+    /// <summary>고른 회사. 처음에는 자기 회사, 목록에 없으면 첫 항목이다.</summary>
+    private string? _companyId;
     private string _content = string.Empty;
     private bool _saving;
 
@@ -116,6 +123,16 @@ public partial class RequestNew
 
     private Action<DevExpress.Blazor.Office.IToolbar> CustomizeToolbar =>
         _customizeToolbar ??= CustomizeEditorToolbar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        _companies = await Context.LoadRequestCompanyOptionsAsync();
+        _companyId = Context.CompanyId is { } mine && _companies.Any(o => o.Value == mine)
+            ? mine
+            : _companies.FirstOrDefault()?.Value;
+    }
 
     /// <summary>편집기에 붙여넣기 처리기를 건다. 걸릴 때까지 그리기마다 다시 보고 걸리면 그만 본다.
     /// 헬프데스크 신원은 묻지 않는다 — 고객 줄은 서버가 첫 글에 만들고, 임시본 열쇠는 로그인 이름으로 짓는다.</summary>
@@ -638,7 +655,7 @@ public partial class RequestNew
 
             // 첨부는 고르개의 임시 폴더에서 떼어 온다 — 화면이 닫히면 고르개가 그 폴더를 지운다.
             var job = new RequestSubmitter.Job(
-                _title, _content, RequestSubmitter.TakeOver(_files), _draftKey);
+                _title, _content, RequestSubmitter.TakeOver(_files), _draftKey, _companyId);
             _files = [];
 
             // 적어 둔 것은 지금 버린다 — 남기면 등록이 끝나기 전에 요청 등록을 다시 열었을 때 같은 글이 되살아나 두 번 들어간다.

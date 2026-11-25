@@ -187,7 +187,9 @@ public sealed class RequestRequesterTests
         // 글은 쓸 때의 회사를 제 칸에 들고, 회사 걸름은 그 칸을 본다. 요청자 줄의 회사를 빌려 쓰면 옛 글이 새 회사로 넘어간다.
         var server = Path.Combine(RepoRoot(), "microservices", "HelpDeskServer");
         var create = StripComments(RazorSource.Read(Path.Combine(server, "Endpoints", "RequestEndpoints.cs")));
-        Assert.Matches(@"new ImprovementRequest \{[\s\S]{0,400}?CompanyId = await db\.Customers", create);
+        // 회사를 골라 보냈으면(시스템관리자·헬프데스크 관리자) 그 값이고, 아니면 요청자 줄의 회사를 그때 읽어 박는다.
+        Assert.Matches(@"new ImprovementRequest \{[\s\S]{0,500}?CompanyId = pickedCompany\.Length > 0[\s\S]{0,120}?: await db\.Customers", create);
+        Assert.Matches(@"RequestCompanyPolicy\.CanPickAsync\([\s\S]{0,200}?ApiResponseBuilder\.Fail\(", create);
 
         foreach (var file in Directory.GetFiles(server, "*.cs", SearchOption.AllDirectories)
                      .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")

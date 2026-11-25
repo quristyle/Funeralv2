@@ -232,6 +232,7 @@
 
 /* 제목·곁단추·등록은 제 높이를 지킨다. 안 적으면 flex 가 이것들까지
    줄여서, 자리가 모자랄 때 단추가 납작해진다. */
+.hd-form.hd-form--wide > .hd-company-field,
 .hd-form.hd-form--wide > .hd-title-field,
 .hd-form.hd-form--wide > .hd-tools,
 .hd-form.hd-form--wide > .hd-submit,
@@ -312,6 +313,7 @@
   }
 
   /* 이름표를 감추면 칸 안 `gap`(0.35rem)만 남아 틈이 생기므로 칸 안쪽 틈을 0 으로 내린다. 칸 사이는 폼의 `gap` 이 맡는다. */
+  .hd-company-field,
   .hd-title-field,
   .hd-content-field {
     gap: 0;

@@ -17,7 +17,8 @@ public sealed class RequestSubmitter(HelpDeskApi api, ContentImages images, Toas
     /// <param name="Content">편집기에서 읽은 본문 HTML. data URI 그림이 남아 있을 수 있다.</param>
     /// <param name="Files">첨부. 임시 파일은 이 작업의 것이다.</param>
     /// <param name="DraftKey">임시 보관 열쇠. 실패하면 이 열쇠로 글을 되돌려 둔다.</param>
-    public sealed record Job(string Title, string Content, IReadOnlyList<PickedFile> Files, string DraftKey);
+    /// <param name="CompanyId">요청이 걸릴 회사(scom.companies.id). null 이면 보내지 않고 서버가 글쓴이의 회사로 정한다.</param>
+    public sealed record Job(string Title, string Content, IReadOnlyList<PickedFile> Files, string DraftKey, string? CompanyId = null);
 
     private int _pending;
 
@@ -50,7 +51,7 @@ public sealed class RequestSubmitter(HelpDeskApi api, ContentImages images, Toas
             int? id;
             try
             {
-                id = await CreateAsync(job.Title, RequestContentHtml.ToStored(absorbed.Url));
+                id = await CreateAsync(job.Title, RequestContentHtml.ToStored(absorbed.Url), job.CompanyId);
             }
             catch (ApiException ex)
             {
@@ -124,13 +125,19 @@ public sealed class RequestSubmitter(HelpDeskApi api, ContentImages images, Toas
 
     /// <summary>요청을 만든다. 폼으로 보낸다 — 칸 이름(Title · Description)이 서버가 읽는 그대로여야 한다. 모르는 칸은 말없이 버려져 빈 값으로 저장된다.
     /// 고객 번호는 보내지 않는다 — 요청자는 글을 쓴 사람으로 고정이고 서버는 안 보내면 그렇게 한다(RequesterProvisioner.ResolveAsync).</summary>
-    private async Task<int?> CreateAsync(string title, string description)
+    private async Task<int?> CreateAsync(string title, string description, string? companyId)
     {
         using var form = new MultipartFormDataContent
         {
             { new StringContent(title.Trim()), "Title" },
             { new StringContent(description), "Description" },
         };
+
+        // 고를 수 있는 회사인지는 서버가 다시 본다(RequestCompanyPolicy).
+        if (!string.IsNullOrWhiteSpace(companyId))
+        {
+            form.Add(new StringContent(companyId), "CompanyId");
+        }
 
         var created = await api.PostMultipartAsync<ImprovementRequest>("requests", form);
         return created?.Id;
