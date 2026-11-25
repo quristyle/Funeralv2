@@ -392,6 +392,9 @@ public partial class MainLayout
         await RestoreSidebarCollapsedAsync();
         await RestoreFabPositionAsync();
         await Lock.RestoreAsync();
+
+        // 새로고침(F5)은 부트스트랩 통(2분)에서 옛 권한표를 꺼내 올 수 있고, 토큰도 로그인 때 역할 그대로다. 뜨자마자 한 번 맞춘다.
+        await SyncPermissionsAsync();
     }
 
     /// <summary>끌어 둔 사이드바 폭을 되살린다. PortalBoot 의 같은 왕복에 실려 오므로 왕복은 따로 없다. 첫 그림은 기본 폭(330px)이고 회로가 붙은 뒤 저장된 폭으로 한 번 바뀐다.</summary>
@@ -902,6 +905,27 @@ public partial class MainLayout
         // 실패는 삼킨다 — 게이트웨이가 잠깐 안 되는 것과 워터마크가 틀린 것은 무게가 다르다. 못 물으면 지금 상태를 그대로 둔다.
         await Me.ReloadAsync();
         await ApplyWatermarkAsync();
+
+        // 같은 차례에 권한도 맞춘다 — 관리자가 역할·메뉴 권한을 바꾸면 30초 안에 사이드바·단추·백엔드 판정이 따라온다.
+        await SyncPermissionsAsync();
+    }
+
+    /// <summary>역할·권한이 바뀌었으면 다시 받는다(PortalBootstrap.SyncPermissionsAsync). 실패는 삼킨다 — 못 맞춰도 지금 화면은 그대로 쓸 수 있다.</summary>
+    private async Task SyncPermissionsAsync()
+    {
+        try
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            if (await Bootstrap.SyncPermissionsAsync(state.User))
+            {
+                Track();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or InvalidOperationException or TaskCanceledException)
+        {
+            Log.LogDebug(ex, "권한을 맞추지 못했다.");
+        }
     }
 
     /// <summary>관리자가 정한 값대로 깔거나 걷는다.</summary>

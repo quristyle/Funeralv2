@@ -58,9 +58,36 @@ public static class PortalBootstrapEndpoints
                 User = info,
                 Preferences = preferences,
                 HeaderIcons = headerIcons,
+                PermissionStamp = PermissionStamp.Of(info?.Roles, permissions),
             }));
         })
         .WithName("GetPortalBootstrap");
+
+        // 포털이 30초마다 부른다. 지문이 받아 둔 부트스트랩의 것과 다르면 그때만 다시 받는다 — 역할은 토큰과 같은 셈(회사·부서·사람)으로 읽는다.
+        app.MapGet("/portal/permission-stamp", async (
+            UserContext? user,
+            [FromServices] IMenuService menuService,
+            [FromServices] IRoleAssignmentService roleAssignments,
+            [FromServices] AuthServer.Data.AppDbContext db) =>
+        {
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var accountId = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                System.Linq.Queryable.Select(
+                    System.Linq.Queryable.Where(db.Accounts, a => !a.IsDeleted && (a.UserId == user.UserId || a.Id == user.UserId)),
+                    a => a.Id));
+
+            var roles = accountId is null
+                ? new List<string>()
+                : (await roleAssignments.ResolveEffectiveRolesAsync(accountId)).RoleIds;
+            var permissions = await menuService.GetMenuPermissionsAsync(user.UserId);
+
+            return Results.Ok(ApiResponse<string>.Ok(PermissionStamp.Of(roles, permissions)));
+        })
+        .WithName("GetPortalPermissionStamp");
 
         app.MapGet("/layout/header-icons", async (
             [FromServices] AuthServer.Data.AppDbContext db) =>

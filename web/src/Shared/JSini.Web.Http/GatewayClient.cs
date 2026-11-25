@@ -15,6 +15,23 @@ public sealed class GatewayClient(HttpClient http)
         PropertyNameCaseInsensitive = true,
     };
 
+    /// <summary>토큰을 지금 새로 받는다. 토큰에 얼려 둔 역할이 DB 와 어긋났을 때 부른다 — 백엔드 서비스들은 역할을 토큰으로만 알아서, 안 바꾸면 다시 로그인할 때까지 옛 권한으로 판정한다. 받았으면 true.</summary>
+    public async Task<bool> RenewTokenAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "auth/refresh");
+        request.Options.Set(AuthTokenHandler.RenewOnly, true);
+
+        try
+        {
+            using var response = await http.SendAsync(request, cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>목록을 읽는다. 무엇이 와도 배열이다(비어 있을 수는 있다).</summary>
     public async Task<IReadOnlyList<T>> GetListAsync<T>(
         string path,

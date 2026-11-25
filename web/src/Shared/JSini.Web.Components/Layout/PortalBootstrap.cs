@@ -20,6 +20,7 @@ public sealed class PortalBootstrap(
     CurrentUser me,
     PortalPrefs prefs,
     HeaderIconManager headerIcons,
+    ITokenStore tokens,
     ILogger<PortalBootstrap> logger)
 {
     /// <summary>넷을 채운다. 통에 있으면 게이트웨이를 부르지 않는다.</summary>
@@ -77,9 +78,64 @@ public sealed class PortalBootstrap(
         return !ReferenceEquals(before, _favoritesWire);
     }
 
+    /// <summary>지금 담겨 있는 부트스트랩의 권한 지문. 서버가 안 실어 주면(옛 AuthServer) null 이고, 그때는 견주지 않는다.</summary>
+    private string? _stamp;
+
+    /// <summary>이 역할 묶음으로 토큰을 이미 한 번 새로 받으려 했다. 갱신이 꺼져 있거나 거절되면 같은 어긋남으로 30초마다 다시 두드리지 않게 막는다.</summary>
+    private string? _renewedFor;
+
+    /// <summary>관리자가 바꾼 역할·권한을 다시 로그인하지 않아도 먹게 맞춘다. 레이아웃이 뜬 직후와 30초마다 부른다.
+    /// ① 서버의 권한 지문이 들고 있는 것과 다르면 메뉴·권한표·내 정보를 통을 거치지 않고 다시 받는다(사이드바·단추·진입 가드가 따라 바뀐다).
+    /// ② 토큰에 얼려 둔 역할이 DB 의 역할(내 정보)과 다르면 토큰을 새로 받는다 — 백엔드 서비스들은 역할을 토큰으로만 알아서, 이것을 안 하면 화면만 바뀌고 저장·조회는 옛 권한으로 판정된다.
+    /// 바뀐 것이 있었으면 true.</summary>
+    public async Task<bool> SyncPermissionsAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default)
+    {
+        var changed = false;
+
+        try
+        {
+            var stamp = await gateway.GetOneAsync<string>("auth/portal/permission-stamp", cancellationToken);
+
+            if (_stamp is not null && stamp is { Length: > 0 } && !string.Equals(stamp, _stamp, StringComparison.Ordinal))
+            {
+                logger.LogInformation("권한이 바뀌었다 — 메뉴·권한표를 다시 받는다 ({Old} → {New}).", _stamp, stamp);
+                await RefreshAsync(user, cancellationToken);
+                changed = true;
+            }
+        }
+        catch (ApiException ex)
+        {
+            // 옛 AuthServer(404)나 잠깐의 장애다. 다음 차례에 다시 묻는다.
+            logger.LogDebug(ex, "권한 지문을 읽지 못했다.");
+        }
+
+        if (!me.IsLoaded
+            || TokenRoles.Read(await tokens.GetAccessTokenAsync(cancellationToken)) is not { } inToken
+            || TokenRoles.SameAs(inToken, me.Roles))
+        {
+            return changed;
+        }
+
+        var wanted = string.Join(',', me.Roles.Select(r => r.ToUpperInvariant()).Order(StringComparer.Ordinal));
+        if (string.Equals(_renewedFor, wanted, StringComparison.Ordinal))
+        {
+            return changed;
+        }
+
+        _renewedFor = wanted;
+        var renewed = await gateway.RenewTokenAsync(cancellationToken);
+
+        logger.LogInformation(
+            "토큰의 역할({Token})이 지금 역할({Now})과 달라 토큰을 새로 받았다: {Renewed}",
+            string.Join(',', inToken), wanted, renewed);
+
+        return changed || renewed;
+    }
+
     /// <summary>받아 둔 한 벌을 넷에 나눠 담는다. 순서는 화면이 필요한 대로다 — 권한표가 먼저여야 메뉴를 담는 순간 이미 걸러진다.</summary>
     private void ApplyAll(PortalBootstrapWire wire)
     {
+        _stamp = wire.PermissionStamp;
         permissions.Apply(wire.Permissions);
 
         // 트리를 기억하는 통을 함께 넘긴다. 통이 이 응답에 매달려 있으므로
@@ -166,6 +222,10 @@ public sealed class PortalBootstrap(
 
         [JsonPropertyName("headerIcons")]
         public List<JSini.Web.Models.LayoutHeaderIconDto> HeaderIcons { get; set; } = [];
+
+        /// <summary>역할과 권한표의 지문. SyncPermissionsAsync 가 서버의 지금 값과 견준다.</summary>
+        [JsonPropertyName("permissionStamp")]
+        public string? PermissionStamp { get; set; }
 
         /// <summary>이 응답으로 만든 메뉴 트리를 기억하는 통. 통의 수명이 이 응답의 수명과 같아 「메뉴와 권한표가 그때 그대로냐」를 따로 확인할 필요가 없다 — 통이 있으면 그렇다는 뜻이다(MenuTree 머리말). internal 이라 직렬화에 실리지 않고 받은 뒤에 채우는 자리다.</summary>
         internal Menu.MenuTree MenuTree { get; } = new();

@@ -22,6 +22,9 @@ public sealed class AuthTokenHandler(
     /// <summary>이 요청이 실제로 붙여 보낸 토큰. 갱신 여부는 통이 아니라 이 값으로 가른다(옆 요청이 이미 갱신했으면 같은 갱신이 또 나가지 않게).</summary>
     private static readonly HttpRequestOptionsKey<string> SentToken = new("JSini.SentToken");
 
+    /// <summary>이 표시가 선 요청은 보내지 않고 토큰만 새로 받는다(<see cref="GatewayClient.RenewTokenAsync"/>). 토큰이 아직 살아 있어도 그 안의 역할이 DB 와 어긋났을 때 쓴다 — 갱신은 역할을 다시 읽어 싣는다.</summary>
+    public static readonly HttpRequestOptionsKey<bool> RenewOnly = new("JSini.RenewOnly");
+
     /// <summary>갱신이 겹치지 않게 한다. 여러 호출이 동시에 401 을 받아도 갱신은 한 번만 나간다.</summary>
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
@@ -31,6 +34,18 @@ public sealed class AuthTokenHandler(
     {
         // 부르는 쪽이 직접 실어 준 토큰(앱알림 아이콘 중계)이면 신원이 아니므로, 갱신해 봐야 바뀌는 것이 없다.
         var callerSuppliedToken = request.Headers.Authorization is not null;
+
+        if (request.Options.TryGetValue(RenewOnly, out var renewOnly) && renewOnly)
+        {
+            // 세션 거절이어도 토큰을 버리지 않는다 — 지금 토큰은 아직 살아 있고, 옛 역할로라도 쓰는 것이 로그인으로 튕기는 것보다 낫다.
+            var current = await tokens.GetAccessTokenAsync(cancellationToken);
+            var (renewed, _) = await TryRefreshAsync(current, cancellationToken);
+
+            return new HttpResponseMessage(renewed ? HttpStatusCode.OK : HttpStatusCode.Unauthorized)
+            {
+                RequestMessage = request,
+            };
+        }
 
         await AttachAsync(request, cancellationToken);
 

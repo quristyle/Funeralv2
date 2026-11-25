@@ -219,6 +219,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   보기 · 복원 · **완전삭제(첨부 · 본문 그림 · 댓글까지)**는 시스템관리자만 한다. 가리는 자리는 전역 걸름 하나
 - [docs/screen-access.md](docs/screen-access.md) — 메뉴에 없는 화면이 주소만으로
   열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
+- [docs/permission-sync.md](docs/permission-sync.md) — 권한을 바꾸면 다시 로그인하지
+  않아도 30초 안에 먹는 길: **토큰 속 역할이 7일 얼어 있던** 까닭 · 권한 지문 · 토큰 갱신
 - [docs/account-activity.md](docs/account-activity.md) — 계정의 마지막 로그인과
   **마지막 사용**: 둘을 가른 까닭 · 쌓는 자리 둘 · 결합이 안 옮기던 로그인 시각
 - [docs/gmail-archive.md](docs/gmail-archive.md) — Gmail 보관함: 계정 종류가

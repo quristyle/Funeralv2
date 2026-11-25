@@ -31,4 +31,7 @@ public class PortalBootstrapDto
 
     /// <summary>레이아웃 상단 도구 아이콘 목록 및 기본 사용 여부.</summary>
     public List<LayoutHeaderIconDto> HeaderIcons { get; set; } = [];
+
+    /// <summary>역할과 권한표의 지문(<see cref="Services.PermissionStamp"/>). 포털이 <c>/portal/permission-stamp</c> 와 견주어 권한이 바뀐 것을 안다.</summary>
+    public string? PermissionStamp { get; set; }
 }
