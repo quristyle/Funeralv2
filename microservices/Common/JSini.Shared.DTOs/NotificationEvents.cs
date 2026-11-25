@@ -27,6 +27,12 @@ public static class NotificationEvents
     /// <summary>헬프데스크 요청이 올라왔다. 구분 <c>HELPDESK</c>.</summary>
     public const string HelpDesk = "HELPDESK";
 
+/// <summary>
+/// 내가 맡은 회사(포털관리 「사용처 담당자」 HELP_DESK)에 새 요청이 올라왔다. 구분 <c>HELPDESK</c>.
+/// 받는 사람은 역할이 아니라 그 회사의 담당자라 <c>target_kind = USER</c> 이고, 메일은 HelpDeskServer 가 따로 내므로 <c>email_from_push</c> 는 거짓이어야 한다.
+/// </summary>
+    public const string HelpDeskManaged = "HELPDESK_MANAGED";
+
     /// <summary>내 요청글에 댓글이 달렸다. 구분 <c>HELPDESK_COMMENT</c>.</summary>
     public const string HelpDeskComment = "HELPDESK_COMMENT";
 

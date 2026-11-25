@@ -125,6 +125,26 @@ public sealed class CompanyUsageManagerService(AppDbContext db)
             .ExecuteDeleteAsync(ct);
     }
 
+    /// <summary>한 회사에서 그 사용처를 맡은 사람들의 로그인 아이디. 역할을 주면 그 역할을 가진 사람만 준다. 사용처가 회사에서 풀렸으면 빈 목록이다.</summary>
+    public async Task<List<string>> ManagerLoginIdsAsync(
+        string companyId, string codeValue, string? roleId, CancellationToken ct)
+    {
+        var code = codeValue.Trim();
+        var role = roleId?.Trim();
+
+        return await db.CompanyUsageManagers.AsNoTracking()
+            .Where(m => !m.IsDeleted
+                && m.CompanyId == companyId
+                && m.CodeValue == code
+                && m.Account != null && !m.Account.IsDeleted
+                && db.CompanyUsageLocations.Any(u => !u.IsDeleted && u.CompanyId == m.CompanyId && u.CodeValue == code)
+                && (string.IsNullOrEmpty(role)
+                    || db.RoleAccounts.Any(ra => !ra.IsDeleted && ra.AccountId == m.AccountId && ra.RoleId == role)))
+            .Select(m => m.Account!.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
     /// <summary>이 로그인 아이디가 그 사용처의 담당자로 걸린 회사들. 사용처가 지금도 회사에 걸려 있는 것만 준다.</summary>
     public async Task<List<string>> MyCompanyIdsAsync(string loginId, string codeValue, CancellationToken ct)
     {

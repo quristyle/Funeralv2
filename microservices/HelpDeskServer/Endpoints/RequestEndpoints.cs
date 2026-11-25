@@ -451,7 +451,7 @@ public static class RequestEndpoints {
 
 
     // 요청 생성
-    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRequesterProvisioner requesters, IPortalCompanyDirectory companies, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IHttpClientFactory httpClientFactory) => {
+    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRequesterProvisioner requesters, IPortalCompanyDirectory companies, IManagedRequestNotifier managedNotifier, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IHttpClientFactory httpClientFactory) => {
       var form = await httpRequest.ReadFormAsync();
       var me = httpRequest.HttpContext.GetHelpdeskPrincipal();
 
@@ -604,6 +604,9 @@ public static class RequestEndpoints {
         catch (TaskCanceledException ex) {
           logger.LogError(ex, "요청 {RequestId} 시스템관리자 푸시 발송 시간이 초과됐습니다.", request.Id);
         }
+
+        // 위 등록 알림은 역할 단위라 맡은 회사를 모른다. 그 회사의 헬프데스크 관리자에게는 따로 보낸다.
+        await managedNotifier.NotifyAsync(request, customer?.UserName ?? auditUser, auditUser, CancellationToken.None);
 
         if (provider.IsConnected) {
           var mailBody = $@"

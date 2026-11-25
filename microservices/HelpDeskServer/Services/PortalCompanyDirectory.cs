@@ -13,6 +13,9 @@ public interface IPortalCompanyDirectory {
 
   /// <summary>이 로그인 아이디가 포털관리 「사용처 담당자」에서 헬프데스크(HELP_DESK) 담당으로 걸린 회사들. 못 읽으면 빈 목록 — 판정은 막는 쪽으로 떨어진다.</summary>
   Task<IReadOnlyList<string>> GetManagedCompanyIdsAsync(string loginId, CancellationToken ct = default);
+
+  /// <summary>그 회사를 「사용처 담당자」(HELP_DESK)로 맡은 사람들 중 <paramref name="roleId"/> 역할을 가진 이의 로그인 아이디. 못 읽으면 빈 목록.</summary>
+  Task<IReadOnlyList<string>> GetManagerLoginIdsAsync(string companyId, string roleId, CancellationToken ct = default);
 }
 
 /// <inheritdoc />
@@ -100,6 +103,45 @@ public sealed class PortalCompanyDirectory : IPortalCompanyDirectory {
     }
     catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException) {
       _logger.LogWarning(ex, "{LoginId} 의 헬프데스크 담당 회사를 읽지 못했습니다 ({BaseUrl}).", loginId, baseUrl);
+      return [];
+    }
+  }
+
+  /// <inheritdoc />
+  public async Task<IReadOnlyList<string>> GetManagerLoginIdsAsync(string companyId, string roleId, CancellationToken ct = default) {
+    var baseUrl = _configuration[BaseUrlKey]?.TrimEnd('/');
+    if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(companyId)) return [];
+
+    try {
+      var client = _httpClientFactory.CreateClient();
+      client.Timeout = TimeSpan.FromSeconds(10);
+
+      // 서비스 간 호출 전용 길이다 — X-User-Role 을 싣지 않아야 받는다.
+      using var request = new HttpRequestMessage(
+          HttpMethod.Get,
+          $"{baseUrl}/system/company-usage-managers/of?companyId={Uri.EscapeDataString(companyId)}"
+          + $"&codeValue=HELP_DESK&role={Uri.EscapeDataString(roleId)}");
+      request.Headers.Add("X-User-Id", "system:helpdesk");
+
+      using var response = await client.SendAsync(request, ct);
+      response.EnsureSuccessStatusCode();
+
+      await using var stream = await response.Content.ReadAsStreamAsync(ct);
+      using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+      if (!json.RootElement.TryGetProperty("data", out var data)
+          || !data.TryGetProperty("result", out var rows)
+          || rows.ValueKind != JsonValueKind.Array) {
+        return [];
+      }
+
+      return [.. rows.EnumerateArray()
+          .Where(r => r.ValueKind == JsonValueKind.String)
+          .Select(r => r.GetString()!)
+          .Where(id => !string.IsNullOrWhiteSpace(id))];
+    }
+    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException) {
+      _logger.LogWarning(ex, "회사 {CompanyId} 의 헬프데스크 담당자를 읽지 못했습니다 ({BaseUrl}).", companyId, baseUrl);
       return [];
     }
   }

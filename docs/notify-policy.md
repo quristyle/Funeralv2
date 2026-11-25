@@ -204,6 +204,7 @@
 | `NOTE` | 쪽지 도착 | `NotificationServer` 의 `NoteEndpoints` · `NoteFallbackMailer` | 당사자 | 푸시·메일 | ○ |
 | `HELPDESK_COMMENT` | 내 요청글에 댓글 | `HelpDeskServer/Services/CommentNotifier` | 당사자 | 푸시·메일 | ○ |
 | `HELPDESK_STATUS` | 내 요청글 접수·완료·종료 | `HelpDeskServer/Services/RequestStatusNotifier` | 당사자 | 푸시·메일 | ○ |
+| `HELPDESK_MANAGED` | 맡은 회사의 요청 등록 — 포털관리 「사용처 담당자」(HELP_DESK)로 그 회사를 맡은 `HELPDESK_MANAGER` 에게. `HELPDESK` 는 역할 단위라 맡은 회사를 모른다 | `HelpDeskServer/Services/ManagedRequestNotifier` | 당사자 | 푸시·메일 | ○ |
 | `BIRTHDAY` | 생일 축하 메시지 | `AuthServer/Services/BirthdayNotifyClient` | 당사자 | 푸시·메일※ | ○ |
 | `WEATHER` | 기상 특보 · 내 위치 날씨 | `LifeEnvServer` → `WeatherEventEndpoints` | 당사자 | 푸시·메일※ | ○ |
 | `SUBSCRIPTION` | 새 기기 알림 구독 | `NotificationServer/Endpoints/NotificationEndpoints` | 당사자 | 푸시·메일※ | ○ |
@@ -219,7 +220,7 @@
 
 | | 메일을 누가 내나 | 받는 글 |
 |---|---|---|
-| `SIGNUP` · `AI_TASK` · `NOTE` · `HELPDESK_COMMENT` · `HELPDESK_STATUS` · `SITE_INQUIRY` · `REPORT_MAIL` | **보내는 쪽**이 `/emails/send` 를 따로 부른다 | 그쪽이 만든 제 틀의 메일 |
+| `SIGNUP` · `AI_TASK` · `NOTE` · `HELPDESK_COMMENT` · `HELPDESK_STATUS` · `HELPDESK_MANAGED` · `SITE_INQUIRY` · `REPORT_MAIL` | **보내는 쪽**이 `/emails/send` 를 따로 부른다 | 그쪽이 만든 제 틀의 메일 |
 | ※ 가 붙은 다섯 (`DEPLOY` · `HELPDESK` · `BIRTHDAY` · `WEATHER` · `SUBSCRIPTION`) | **`PushSender` 가 함께 낸다** (`FanOutEmailAsync`) | 앱 알림과 **같은 글** |
 
 **왜 갈라야 하나.** 앞 갈래는 이미 메일 경로가 있어서 체크가 벌써 들었다.

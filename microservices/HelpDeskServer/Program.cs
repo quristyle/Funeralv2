@@ -198,6 +198,9 @@ builder.Services.AddScoped<ICommentNotifier, CommentNotifier>();
 // 「내 요청글이 접수·완료·종료 되었다」를 당사자에게 알린다(앱 푸시 · 이메일).
 builder.Services.AddScoped<IRequestStatusNotifier, RequestStatusNotifier>();
 
+// 「맡은 회사에 새 요청이 올라왔다」를 그 회사의 헬프데스크 관리자에게 알린다(앱 푸시 · 이메일).
+builder.Services.AddScoped<IManagedRequestNotifier, ManagedRequestNotifier>();
+
 // 현황판(/api/dashboard/overview)이 쓰는 집계. DB 를 읽으므로 Scoped 다.
 builder.Services.AddScoped<DashboardOverviewService>();
 

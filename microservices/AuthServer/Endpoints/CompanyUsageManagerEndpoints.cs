@@ -69,6 +69,27 @@ public static class CompanyUsageManagerEndpoints
             return Results.Ok(await service.MyCompanyIdsAsync(user.UserId, codeValue ?? string.Empty, ct));
         })
         .WithName("GetMyUsageManagedCompanies");
+
+        // 서비스 간 호출 전용(헬프데스크가 새 요청을 맡은 담당자에게 알린다). 게이트웨이를 거친 요청은 X-User-Role 이 늘 붙으므로 그것으로 가른다.
+        group.MapGet("/of", async (
+            [FromQuery] string companyId,
+            [FromQuery] string codeValue,
+            [FromQuery] string? role,
+            UserContext? user, HttpContext http,
+            CompanyUsageManagerService service, CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+            if (http.Request.Headers.ContainsKey("X-User-Role"))
+            {
+                return Results.Json(
+                    ApiResponse<object>.Fail("서비스 간 호출만 받습니다.", "403"),
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            return Results.Ok(await service.ManagerLoginIdsAsync(
+                companyId ?? string.Empty, codeValue ?? string.Empty, role, ct));
+        })
+        .WithName("GetCompanyUsageManagerLoginIds");
     }
 
     private static async Task<IResult?> ForbidAsync(
