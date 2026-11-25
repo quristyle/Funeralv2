@@ -318,7 +318,7 @@ public partial class AiAskPanel
     /// <summary>로그인 아이디. 못 읽었으면 <c>null</c> 이다.</summary>
     private string? _me;
 
-    /// <summary>내가 올린 건인가. 「새 남긴말」 배지를 내 카드에만 세운다 — 목록은 서버가 내 것만 주지만 아이디 대소문자·공백이 섞일 수 있어 한 번 더 본다.</summary>
+    /// <summary>내가 올린 건인가. 「새 남긴말」 배지와 일괄 확인을 내 카드에만 건다 — 시스템관리자에게는 남의 지시도 오고, 아이디 대소문자·공백이 섞일 수 있다.</summary>
     private bool IsMine(AiTaskDto t) =>
         _me is { Length: > 0 } me
         && string.Equals(me, t.CreId?.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -920,12 +920,12 @@ public partial class AiAskPanel
         FixKind();
     }
 
-    /// <summary>최근 보낸 것. 내가 보낸 것만 온다(<c>mine</c> — 서버가 로그인 아이디로 거른다).</summary>
+    /// <summary>최근 보낸 것. 누구 것까지 줄지는 서버가 역할로 정한다 — 시스템관리자는 모든 사용자의 지시, 그 밖에는 내가 보낸 것만.</summary>
     private async Task LoadRecentAsync()
     {
         await LoadAsync(async () =>
         {
-            Show(await Api.ListAsync(userConfirmed: false, mine: true));
+            Show(await Api.ListAsync(userConfirmed: false));
 
             return _recent.Count;
         }, emptyMessage: string.Empty, failMessage: "보낸 것을 읽지 못했습니다");
@@ -988,7 +988,7 @@ public partial class AiAskPanel
     private bool _batchConfirming;
 
     /// <summary>확인 대상인 완료건 수 (TaskStatus == "succeeded").</summary>
-    private int CompletedCount => _done.Count;
+    private int CompletedCount => _done.Count(IsMine);
 
     /// <summary>완료된 빠른 지시 건을 모두 사용자 확인 완료 처리한다.</summary>
     private async Task ConfirmCompletedBatchAsync()
@@ -998,7 +998,8 @@ public partial class AiAskPanel
             return;
         }
 
-        var targets = _done.ToList();
+        // 내 것만 — 시스템관리자가 남의 완료건까지 확인하면 그 사람 목록에서 결과가 말없이 사라진다.
+        var targets = _done.Where(IsMine).ToList();
         if (targets.Count == 0)
         {
             return;
@@ -1388,7 +1389,7 @@ public partial class AiAskPanel
     {
         try
         {
-            var rows = await Api.ListAsync(userConfirmed: false, mine: true, ct: ct);
+            var rows = await Api.ListAsync(userConfirmed: false, ct: ct);
 
             if (ct.IsCancellationRequested)
             {

@@ -39,7 +39,7 @@ public sealed class AiTasksController(
         [FromQuery] bool excludeDone = false, [FromQuery] bool mine = false,
         [FromQuery] bool memberTargets = false)
     {
-        // mine — 「빠른 지시」의 최근 목록. 내가 보낸 것만 준다.
+        // mine — 역할과 무관하게 내가 보낸 것만 준다(「빠른 지시」는 안 싣는다 — 관리자는 모두의 지시를 본다).
         // memberTargets — 「AI 작업」 화면. 내가 참여한 프로젝트의 대상에 걸린 것만 준다.
         // 시스템관리자는 모든 사용자의 작성내용을 볼 수 있고, 그 외 사용자는 자신이 작성한 작업만 본다.
         var isSystemAdmin = PortalRoles.RolesOf(Request)
