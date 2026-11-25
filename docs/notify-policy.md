@@ -202,7 +202,7 @@
 | `REPORT_MAIL` | 보고서 메일 | `AuthServer/Services/ReportMailSender` | 역할 | 메일 | ○ |
 | `SITE_INQUIRY` | 소개 사이트 문의 접수 | `SiteServer` 의 `InquiryMailNotifier` · `InquiryPushNotifier` | 역할 | 푸시·메일 | ○ |
 | `NOTE` | 쪽지 도착 | `NotificationServer` 의 `NoteEndpoints` · `NoteFallbackMailer` | 당사자 | 푸시·메일 | ○ |
-| `HELPDESK_COMMENT` | 내 요청글에 댓글 | `HelpDeskServer/Services/CommentNotifier` | 당사자 | 푸시·메일 | ○ |
+| `HELPDESK_COMMENT` | 내 요청글에 댓글 · 내 댓글에 답글 · 맡은 회사(`HELPDESK_MANAGER`) 글의 댓글·답글 | `HelpDeskServer/Services/CommentNotifier` | 당사자 | 푸시·메일 | ○ |
 | `HELPDESK_STATUS` | 내 요청글 접수·완료·종료 | `HelpDeskServer/Services/RequestStatusNotifier` | 당사자 | 푸시·메일 | ○ |
 | `HELPDESK_MANAGED` | 맡은 회사의 요청 등록 — 포털관리 「사용처 담당자」(HELP_DESK)로 그 회사를 맡은 `HELPDESK_MANAGER` 에게. `HELPDESK` 는 역할 단위라 맡은 회사를 모른다 | `HelpDeskServer/Services/ManagedRequestNotifier` | 당사자 | 푸시·메일 | ○ |
 | `BIRTHDAY` | 생일 축하 메시지 | `AuthServer/Services/BirthdayNotifyClient` | 당사자 | 푸시·메일※ | ○ |

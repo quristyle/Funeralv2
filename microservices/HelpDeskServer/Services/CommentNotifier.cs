@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>내 요청글의 댓글·내 댓글의 답글을 당사자에게 앱 푸시와 이메일로 알리고, 시스템 관리자에게는 모든 댓글을 앱 푸시로 알린다. 푸시는 알림 서비스로 보낸다(헬프데스크 자체 구독표는 쓰지 않는다).
+/// <summary>내 요청글의 댓글·내 댓글의 답글을 당사자에게, 그 글의 회사를 맡은 헬프데스크 관리자(「사용처 담당자」 HELP_DESK + <c>HELPDESK_MANAGER</c>)에게 앱 푸시와 이메일로 알리고, 시스템 관리자에게는 모든 댓글을 앱 푸시로 알린다. 푸시는 알림 서비스로 보낸다(헬프데스크 자체 구독표는 쓰지 않는다).
 /// 자기 글에 자기가 단 답글도 보낸다 — 한 사람이 글쓴이와 관리자를 겸하는 회사라서. 끄는 자리는 알림관리 정책과 본인 설정이다. 알림이 실패해도 댓글 저장은 성공으로 둔다.</summary>
 public interface ICommentNotifier {
   /// <summary>댓글 하나를 알린다. 당사자를 포털 계정으로 풀지 못해도 시스템 관리자 몫은 나간다. actorLoginId 는 받는 사람이 아니라 알림 아이콘용이다.</summary>
@@ -30,6 +30,7 @@ public sealed class CommentNotifier : ICommentNotifier {
 
   private readonly AppDbContext _db;
   private readonly IRequestOwnerResolver _owners;
+  private readonly IPortalCompanyDirectory _companies;
   private readonly INotifyGateway _gateway;
   private readonly ILogger<CommentNotifier> _logger;
 
@@ -37,10 +38,12 @@ public sealed class CommentNotifier : ICommentNotifier {
   public CommentNotifier(
       AppDbContext db,
       IRequestOwnerResolver owners,
+      IPortalCompanyDirectory companies,
       INotifyGateway gateway,
       ILogger<CommentNotifier> logger) {
     _db = db;
     _owners = owners;
+    _companies = companies;
     _gateway = gateway;
     _logger = logger;
   }
@@ -97,10 +100,29 @@ public sealed class CommentNotifier : ICommentNotifier {
       await SendEmailAsync(request, ownerLoginId, authorName, comment, url, isReply: false, ct);
     }
 
-    // 5. 시스템 관리자는 당사자가 아니어도 모든 댓글을 앱푸시로 받는다(자기가 단 댓글도). 위에서 이미 받은 사람은 뺀다.
-    var alreadyNotified = new[] { parentAuthorLoginId, ownerLoginId }
+    // 5. 그 글의 회사를 맡은 헬프데스크 관리자. 맡지 않은 회사의 글은 안 간다. 위에서 이미 받은 사람과 댓글을 단 본인은 뺀다.
+    var notified = new[] { parentAuthorLoginId, ownerLoginId }
         .Where(id => !string.IsNullOrWhiteSpace(id))
         .Select(id => id!)
+        .ToList();
+
+    if (!string.IsNullOrWhiteSpace(request.CompanyId)) {
+      var managers = (await _companies.GetManagerLoginIdsAsync(request.CompanyId, RequestCompanyPolicy.ManagerRole, ct))
+          .Where(id => !string.Equals(id, actorLoginId, StringComparison.OrdinalIgnoreCase)
+              && !notified.Contains(id, StringComparer.OrdinalIgnoreCase))
+          .Distinct(StringComparer.OrdinalIgnoreCase)
+          .ToList();
+
+      foreach (var manager in managers) {
+        await SendPushAsync(request, manager, authorName, preview, url, actorLoginId, isReply: parentComment != null, ct);
+        await SendEmailAsync(request, manager, authorName, comment, url, isReply: parentComment != null, ct, asManager: true);
+      }
+
+      notified.AddRange(managers);
+    }
+
+    // 6. 시스템 관리자는 당사자가 아니어도 모든 댓글을 앱푸시로 받는다(자기가 단 댓글도). 위에서 이미 받은 사람은 뺀다.
+    var alreadyNotified = notified
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
 
@@ -169,14 +191,14 @@ public sealed class CommentNotifier : ICommentNotifier {
   /// <summary>이메일 한 통. 본문에 댓글 원문과 그 글로 가는 고리를 싣는다. 큐가 아니라 직발송을 쓴다 — 여기서 아는 것은 포털 로그인 아이디뿐이라 toUser 로 저쪽에서 주소를 풀게 한다.</summary>
   private async Task SendEmailAsync(
       ImprovementRequest request, string targetLoginId, string authorName,
-      ImprovementComment comment, string url, bool isReply, CancellationToken ct) {
+      ImprovementComment comment, string url, bool isReply, CancellationToken ct, bool asManager = false) {
 
     var label = isReply ? "답글" : "댓글";
 
     var payload = new {
       toUser = targetLoginId,
       subject = $"[헬프데스크] {request.Title} — {authorName} 님의 {label}",
-      body = EmailBody(request, authorName, comment, url, isReply),
+      body = EmailBody(request, authorName, comment, url, isReply, asManager),
 
       // 저쪽 DTO 속성은 Html 이다. isHtml 로 적으면 조용히 기본값이 쓰여 태그가 그대로 보인다.
       html = true,
@@ -192,13 +214,16 @@ public sealed class CommentNotifier : ICommentNotifier {
 
   /// <summary>메일 본문에 댓글 원문을 그대로 싣는다(미리보기만 보내면 받는 사람이 포털을 열어야 한다). 댓글은 HTML 이라 html=true 로 보낸다.</summary>
   private static string EmailBody(
-      ImprovementRequest request, string authorName, ImprovementComment comment, string url, bool isReply) {
+      ImprovementRequest request, string authorName, ImprovementComment comment, string url, bool isReply, bool asManager) {
 
     var portalUrl = $"https://portal.jsini.co.kr{url}";
     var title = WebUtility.HtmlEncode(request.Title ?? string.Empty);
     var who = WebUtility.HtmlEncode(authorName);
 
-    var messageText = isReply
+    // 담당자는 글 주인도 부모 댓글 주인도 아니다 — 「남기신 댓글에」라고 쓰면 남의 댓글을 제 것으로 읽는다.
+    var messageText = asManager
+        ? $"맡고 계신 회사의 요청글 「{title}」 에 <strong>{who}</strong> 님이 {(isReply ? "답글" : "댓글")}을 남겼습니다."
+        : isReply
         ? $"<strong>{who}</strong> 님이 요청글 「{title}」 에 남기신 댓글에 답글을 남겼습니다."
         : $"<strong>{who}</strong> 님이 요청글 「{title}」 에 댓글을 남겼습니다.";
 
