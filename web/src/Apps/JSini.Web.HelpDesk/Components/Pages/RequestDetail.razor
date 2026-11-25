@@ -25,9 +25,26 @@
         {
             <span class="jsini-badge @StatusClass()">@StatusText()</span>
 
-            @* 휴대폰에서는 단추 줄이 제목 아래로 몇 줄씩 흘러 본문을 밀어낸다. 단추 하나에 모아 누르면 목록으로 편다. *@
-            @if (_isPhone)
+            @* 지운 글은 시스템관리자만 연다. 할 수 있는 일은 되살리기와 완전삭제 둘뿐이다. *@
+            @if (IsDeleted)
             {
+                <span class="jsini-badge jsini-badge--err">삭제됨</span>
+
+                @if (Context.IsSystemAdmin)
+                {
+                    <div class="hd-actions">
+                        <DxButton Text="복원" RenderStyle="ButtonRenderStyle.Primary"
+                                  SizeMode="SizeMode.Small"
+                                  Enabled="@(!Loading)" Click="@RestoreAsync" />
+                        <DxButton Text="완전삭제" RenderStyle="ButtonRenderStyle.Danger"
+                                  SizeMode="SizeMode.Small"
+                                  Enabled="@(!Loading)" Click="@PurgeAsync" />
+                    </div>
+                }
+            }
+            else if (_isPhone)
+            {
+                @* 휴대폰에서는 단추 줄이 제목 아래로 몇 줄씩 흘러 본문을 밀어낸다. 단추 하나에 모아 누르면 목록으로 편다. *@
                 @if (HasAnyAction)
                 {
                     <DxDropDownButton Text="처리" RenderStyle="ButtonRenderStyle.Primary"
@@ -118,6 +135,11 @@
         }
     </div>
 
+    @if (_request is not null && IsDeleted)
+    {
+        <PageNotice Tone="NoticeTone.Warning">@DeletedNotice</PageNotice>
+    }
+
     @if (_request is not null)
     {
         @* `dl` 안의 `div` 가 있어야 좁은 화면에서 이름과 값이 한 덩이로 접힌다. *@
@@ -191,7 +213,9 @@
         {
             <CommentThread Nodes="@_roots"
                            CanReply="@CanWrite"
-                           CanDeleteComment="@(!IsFinished)"
+                           CanDeleteComment="@(!IsFinished && !IsDeleted)"
+                           CanPurge="@Context.IsSystemAdmin"
+                           OnPurge="@PurgeCommentAsync"
                            ReplyTo="@_replyTo"
                            CurrentUserId="@Context.HelpdeskUserId"
                            CurrentUserType="@(Context.Identity?.LoginType ?? "admin")"

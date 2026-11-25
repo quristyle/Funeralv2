@@ -203,6 +203,8 @@ builder.Services.AddScoped<IManagedRequestNotifier, ManagedRequestNotifier>();
 
 // 현황판(/api/dashboard/overview)이 쓰는 집계. DB 를 읽으므로 Scoped 다.
 builder.Services.AddScoped<DashboardOverviewService>();
+// 지운 요청글·댓글의 완전삭제(파일까지). 시스템관리자만 부른다.
+builder.Services.AddScoped<IRequestPurger, RequestPurger>();
 
 // ============================================================
 // 8. 백그라운드 워커

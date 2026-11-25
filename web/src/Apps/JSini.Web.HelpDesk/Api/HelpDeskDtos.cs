@@ -65,6 +65,11 @@ public sealed class ImprovementRequest : HdEntity
     public int? AttachmentCount { get; set; }
     public List<Attachment>? Attachments { get; set; }
     public List<ImprovementComment>? Comments { get; set; }
+
+    /// <summary>지움 표시. 시스템관리자의 휴지통(trash=true)에서만 참인 줄이 온다.</summary>
+    public bool IsDel { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
 }
 
 /// <summary>요청 댓글 한 줄. 칸 이름은 서버 응답에 맞춘다 — 어긋나면 역직렬화가 오류 없이 빈 값을 채운다.

@@ -63,7 +63,7 @@ public partial class RequestDetail : IDisposable
 
     /// <summary>댓글을 남길 수 있는가. 댓글 칸과 답글 단추가 이 값 하나를 본다.
     /// 연결이 없어도 이 글의 회사를 맡은 헬프데스크 관리자는 쓴다 — 작성자는 서버가 담당자 줄로 정한다.</summary>
-    private bool CanWrite => !IsFinished && (Context.IsLinked || _handlesCompany) && Permissions.Can(MenuPath, MenuAction.Create);
+    private bool CanWrite => !IsFinished && !IsDeleted && (Context.IsLinked || _handlesCompany) && Permissions.Can(MenuPath, MenuAction.Create);
 
     /// <summary>시스템관리자이고 아직 안 끝난 요청이면 지울 수 있다.</summary>
     /// <summary>휴대폰인가. 단추 줄을 「처리」 하나로 접는 데 쓴다 — Blazor Server 는 브라우저 폭을 모른다.</summary>
@@ -75,7 +75,21 @@ public partial class RequestDetail : IDisposable
     private bool HasAnyAction =>
         (CanHandle && (IsPending || IsOpen)) || CanClose || Context.IsSystemAdmin;
 
-    private bool CanDeleteRequest => Context.IsSystemAdmin && !IsFinished;
+    private bool CanDeleteRequest => Context.IsSystemAdmin && !IsFinished && !IsDeleted;
+
+    /// <summary>지움 표시가 선 글인가. 서버는 이런 글을 시스템관리자에게만 준다.</summary>
+    private bool IsDeleted => string.Equals(Value("isDel"), "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>지운 글 머리의 안내 — 누가 언제 지웠나.</summary>
+    private string DeletedNotice
+    {
+        get
+        {
+            var who = Value("deletedBy");
+            var when = When("deletedAt");
+            return $"삭제된 요청입니다 ({(string.IsNullOrWhiteSpace(who) ? "-" : who)} · {when}). 복원하거나 완전삭제할 수 있습니다.";
+        }
+    }
 
     /// <summary>접수·완료를 누를 수 있는가. 연결이 아니라 담당자 여부를 본다 — 담당자 줄은 서버가 접수할 때 만든다.</summary>
     private bool CanHandle => (Context.IsAdmin || _handlesCompany) && Permissions.Can(MenuPath, MenuAction.Update);
@@ -238,6 +252,71 @@ public partial class RequestDetail : IDisposable
             var fallback = Tabs.Close(Href);
             Navigation.NavigateTo(fallback ?? "/helpdesk/request/manage");
         }
+    }
+
+    /// <summary>「복원」 — 시스템관리자가 지운 글을 되살린다. 댓글·첨부는 지우기 전 그대로 돌아온다.</summary>
+    private async Task RestoreAsync()
+    {
+        if (_confirm is not null && !await _confirm.AskAsync($"「{TabTitle}」 을(를) 복원하시겠습니까?", "요청 복원", "복원", ButtonRenderStyle.Primary))
+        {
+            return;
+        }
+
+        var done = await RunAsync(
+            () => Api.PutAsync($"requests/{Id}/restore", new { }),
+            "복원했습니다.", "복원하지 못했습니다");
+
+        if (done)
+        {
+            NotifyChanged();
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>「완전삭제」 — 글 · 댓글 · 첨부 · 본문 그림을 실제로 지운다. 되돌릴 수 없다.</summary>
+    private async Task PurgeAsync()
+    {
+        if (_confirm is not null && !await _confirm.AskAsync(
+                $"「{TabTitle}」 을(를) 완전삭제합니다. 댓글과 첨부파일·본문 그림까지 함께 지워지며 되돌릴 수 없습니다.",
+                "요청 완전삭제", "완전삭제", ButtonRenderStyle.Danger))
+        {
+            return;
+        }
+
+        var done = await RunAsync(
+            () => Api.DeleteAsync($"requests/{Id}/purge"),
+            "완전삭제했습니다.", "완전삭제하지 못했습니다");
+
+        if (done)
+        {
+            NotifyChanged();
+            var fallback = Tabs.Close(Href);
+            Navigation.NavigateTo(fallback ?? "/helpdesk/request/manage");
+        }
+    }
+
+    /// <summary>지운 댓글 하나를 완전삭제한다(첨부·그림까지). 달린 답글은 서버가 윗 댓글로 옮겨 단다.</summary>
+    private async Task<bool> PurgeCommentAsync(int commentId)
+    {
+        if (_confirm is not null && !await _confirm.AskAsync(
+                "삭제된 댓글을 완전삭제합니다. 첨부파일과 그림까지 지워지며 되돌릴 수 없습니다.",
+                "댓글 완전삭제", "완전삭제", ButtonRenderStyle.Danger))
+        {
+            return false;
+        }
+
+        var done = await RunAsync(
+            () => Api.DeleteAsync($"comments/{commentId}/purge"),
+            "완전삭제했습니다.", "완전삭제하지 못했습니다");
+
+        if (done)
+        {
+            NotifyChanged();
+            await ReloadAsync();
+        }
+
+        StateHasChanged();
+        return done;
     }
 
     /// <summary>「종료(최종확인)」 — 글 주인이 결과를 보고 닫는다. 접수자는 바뀌지 않는다.</summary>

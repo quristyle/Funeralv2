@@ -144,146 +144,6 @@ namespace HelpDeskServer.Migrations
                         });
                 });
 
-            modelBuilder.Entity("HelpDeskServer.Models.AppRole", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ActionService")
-                        .HasColumnType("text")
-                        .HasColumnName("actionservice");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("createdat");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("createdby");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description")
-                        .HasComment("설명");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("displayname")
-                        .HasComment("표시용 명칭");
-
-                    b.Property<string>("MenuContext")
-                        .HasColumnType("text")
-                        .HasColumnName("menucontext");
-
-                    b.Property<DateTime?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modifiedat");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("modifiedby");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name")
-                        .HasComment("그룹명 (영문 식별자 권장)");
-
-                    b.Property<string>("RemoteAddr")
-                        .HasColumnType("text")
-                        .HasColumnName("remoteaddr");
-
-                    b.Property<string>("RemoteMchineInfo")
-                        .HasColumnType("text")
-                        .HasColumnName("remotemchineinfo");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sortorder")
-                        .HasComment("정렬 순서");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("approle", "helpdesk", t =>
-                        {
-                            t.HasComment("권한 그룹(역할) 엔티티");
-                        });
-                });
-
-            modelBuilder.Entity("HelpDeskServer.Models.AppUserRole", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ActionService")
-                        .HasColumnType("text")
-                        .HasColumnName("actionservice");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("createdat");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("createdby");
-
-                    b.Property<string>("MenuContext")
-                        .HasColumnType("text")
-                        .HasColumnName("menucontext");
-
-                    b.Property<DateTime?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modifiedat");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("modifiedby");
-
-                    b.Property<string>("RemoteAddr")
-                        .HasColumnType("text")
-                        .HasColumnName("remoteaddr");
-
-                    b.Property<string>("RemoteMchineInfo")
-                        .HasColumnType("text")
-                        .HasColumnName("remotemchineinfo");
-
-                    b.Property<int>("RoleId")
-                        .HasColumnType("integer")
-                        .HasColumnName("roleid")
-                        .HasComment("권한 그룹 ID");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("userid")
-                        .HasComment("사용자 ID (AdminId 또는 CustomerId)");
-
-                    b.Property<string>("UserType")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("usertype")
-                        .HasComment("사용자 타입 (admin, customer)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoleId");
-
-                    b.ToTable("appuserrole", "helpdesk", t =>
-                        {
-                            t.HasComment("사용자별 권한 그룹 매핑 엔티티");
-                        });
-                });
-
             modelBuilder.Entity("HelpDeskServer.Models.Attachment", b =>
                 {
                     b.Property<int>("Id")
@@ -321,7 +181,7 @@ namespace HelpDeskServer.Migrations
                     b.Property<string>("FileId")
                         .HasColumnType("text")
                         .HasColumnName("fileid")
-                        .HasComment("FileServer 가 발급한 파일 아이디. 채워져 있으면 이 첨부는 FileServer 로 옮겨진 것이다.");
+                        .HasComment("FileServer 가 발급한 파일 아이디. 채워져 있으면 이 첨부는 FileServer 로 옮겨진 것이다. FileServer 라는 전용 서비스가 있는데도 헬프데스크가 첨부를 따로 관리하고 있었다");
 
                     b.Property<string>("FilePath")
                         .IsRequired()
@@ -515,7 +375,7 @@ namespace HelpDeskServer.Migrations
                     b.Property<string>("CompanyId")
                         .HasColumnType("text")
                         .HasColumnName("companyid")
-                        .HasComment("소속 회사 식별자 — 포털(scom.companies.id)의 값이다.");
+                        .HasComment("소속 회사 식별자 — 포털(scom.companies.id)의 값이다. 헬프데스크는 회사를 스스로 관리하지 않는다.");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -717,7 +577,7 @@ namespace HelpDeskServer.Migrations
                     b.Property<DateTime?>("AcceptedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("acceptedat")
-                        .HasComment("접수일시 — 담당자가 이 글을 맡은 때.");
+                        .HasComment("접수일시 — 담당자가 이 글을 맡은 때.\n            createdat(요청이 들어온 때)을 「접수」로 쓰면 안 된다 — 이 칸이 따로 있다.");
 
                     b.Property<string>("ActionService")
                         .HasColumnType("text")
@@ -752,6 +612,16 @@ namespace HelpDeskServer.Migrations
                         .HasColumnName("customerid")
                         .HasComment("고객 ID");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat")
+                        .HasComment("지운 시각(UTC).");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby")
+                        .HasComment("지운 사람(포털 아이디).");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text")
@@ -762,6 +632,11 @@ namespace HelpDeskServer.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("iptype")
                         .HasComment("개선 유형");
+
+                    b.Property<bool>("IsDel")
+                        .HasColumnType("boolean")
+                        .HasColumnName("isdel")
+                        .HasComment("지움 표시. 지운 글은 줄을 남기고 이 칸만 세운다 — 전역 걸름(AppDbContext)이 시스템관리자 길 말고는 모두 가린다.\n            줄과 첨부·그림·댓글을 실제로 지우는 것은 시스템관리자의 완전삭제(RequestPurger)뿐이다.");
 
                     b.Property<string>("MainPhoto")
                         .HasColumnType("text")
@@ -818,242 +693,6 @@ namespace HelpDeskServer.Migrations
                     b.ToTable("improvementrequest", "helpdesk", t =>
                         {
                             t.HasComment("개선 요청");
-                        });
-                });
-
-            modelBuilder.Entity("HelpDeskServer.Models.Menu", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ActionService")
-                        .HasColumnType("text")
-                        .HasColumnName("actionservice");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("createdat");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("createdby");
-
-                    b.Property<string>("Ext1Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext1name");
-
-                    b.Property<string>("Ext2Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext2name");
-
-                    b.Property<string>("Ext3Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext3name");
-
-                    b.Property<string>("Ext4Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext4name");
-
-                    b.Property<string>("Ext5Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext5name");
-
-                    b.Property<string>("Ext6Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext6name");
-
-                    b.Property<string>("Ext7Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext7name");
-
-                    b.Property<string>("Ext8Name")
-                        .HasColumnType("text")
-                        .HasColumnName("ext8name");
-
-                    b.Property<string>("Icon")
-                        .HasColumnType("text")
-                        .HasColumnName("icon")
-                        .HasComment("아이콘 (PrimeIcons)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("isactive")
-                        .HasComment("활성화 여부");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("label")
-                        .HasComment("메뉴명");
-
-                    b.Property<string>("MenuContext")
-                        .HasColumnType("text")
-                        .HasColumnName("menucontext");
-
-                    b.Property<DateTime?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modifiedat");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("modifiedby");
-
-                    b.Property<int?>("ParentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("parentid")
-                        .HasComment("부모 메뉴 ID");
-
-                    b.Property<string>("RemoteAddr")
-                        .HasColumnType("text")
-                        .HasColumnName("remoteaddr");
-
-                    b.Property<string>("RemoteMchineInfo")
-                        .HasColumnType("text")
-                        .HasColumnName("remotemchineinfo");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sortorder")
-                        .HasComment("정렬 순서");
-
-                    b.Property<string>("To")
-                        .HasColumnType("text")
-                        .HasColumnName("to")
-                        .HasComment("이동 경로 (내부 라우터)");
-
-                    b.Property<string>("Url")
-                        .HasColumnType("text")
-                        .HasColumnName("url")
-                        .HasComment("외부 URL");
-
-                    b.Property<bool>("UseCreate")
-                        .HasColumnType("boolean")
-                        .HasColumnName("usecreate");
-
-                    b.Property<bool>("UseDelete")
-                        .HasColumnType("boolean")
-                        .HasColumnName("usedelete");
-
-                    b.Property<bool>("UseExt1")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext1");
-
-                    b.Property<bool>("UseExt2")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext2");
-
-                    b.Property<bool>("UseExt3")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext3");
-
-                    b.Property<bool>("UseExt4")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext4");
-
-                    b.Property<bool>("UseExt5")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext5");
-
-                    b.Property<bool>("UseExt6")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext6");
-
-                    b.Property<bool>("UseExt7")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext7");
-
-                    b.Property<bool>("UseExt8")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useext8");
-
-                    b.Property<bool>("UseRead")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useread");
-
-                    b.Property<bool>("UseUpdate")
-                        .HasColumnType("boolean")
-                        .HasColumnName("useupdate");
-
-                    b.Property<bool>("Visible")
-                        .HasColumnType("boolean")
-                        .HasColumnName("visible")
-                        .HasComment("메뉴 노출 여부");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentId");
-
-                    b.ToTable("menu", "helpdesk", t =>
-                        {
-                            t.HasComment("메뉴 관리 엔티티");
-                        });
-                });
-
-            modelBuilder.Entity("HelpDeskServer.Models.MenuRole", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ActionService")
-                        .HasColumnType("text")
-                        .HasColumnName("actionservice");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("createdat");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("createdby");
-
-                    b.Property<string>("MenuContext")
-                        .HasColumnType("text")
-                        .HasColumnName("menucontext");
-
-                    b.Property<int>("MenuId")
-                        .HasColumnType("integer")
-                        .HasColumnName("menuid")
-                        .HasComment("메뉴 ID");
-
-                    b.Property<DateTime?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modifiedat");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("modifiedby");
-
-                    b.Property<string>("RemoteAddr")
-                        .HasColumnType("text")
-                        .HasColumnName("remoteaddr");
-
-                    b.Property<string>("RemoteMchineInfo")
-                        .HasColumnType("text")
-                        .HasColumnName("remotemchineinfo");
-
-                    b.Property<string>("RoleName")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("rolename")
-                        .HasComment("권한명 (admin, customer 등)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MenuId");
-
-                    b.ToTable("menurole", "helpdesk", t =>
-                        {
-                            t.HasComment("메뉴별 권한 매핑 엔티티");
                         });
                 });
 
@@ -1459,116 +1098,6 @@ namespace HelpDeskServer.Migrations
                         });
                 });
 
-            modelBuilder.Entity("HelpDeskServer.Models.RoleMenuPermission", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ActionService")
-                        .HasColumnType("text")
-                        .HasColumnName("actionservice");
-
-                    b.Property<bool>("CanCreate")
-                        .HasColumnType("boolean")
-                        .HasColumnName("cancreate");
-
-                    b.Property<bool>("CanDelete")
-                        .HasColumnType("boolean")
-                        .HasColumnName("candelete");
-
-                    b.Property<bool>("CanRead")
-                        .HasColumnType("boolean")
-                        .HasColumnName("canread");
-
-                    b.Property<bool>("CanUpdate")
-                        .HasColumnType("boolean")
-                        .HasColumnName("canupdate");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("createdat");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("createdby");
-
-                    b.Property<bool>("Ext1")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext1");
-
-                    b.Property<bool>("Ext2")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext2");
-
-                    b.Property<bool>("Ext3")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext3");
-
-                    b.Property<bool>("Ext4")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext4");
-
-                    b.Property<bool>("Ext5")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext5");
-
-                    b.Property<bool>("Ext6")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext6");
-
-                    b.Property<bool>("Ext7")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext7");
-
-                    b.Property<bool>("Ext8")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ext8");
-
-                    b.Property<string>("MenuContext")
-                        .HasColumnType("text")
-                        .HasColumnName("menucontext");
-
-                    b.Property<int>("MenuId")
-                        .HasColumnType("integer")
-                        .HasColumnName("menuid");
-
-                    b.Property<DateTime?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modifiedat");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("modifiedby");
-
-                    b.Property<string>("RemoteAddr")
-                        .HasColumnType("text")
-                        .HasColumnName("remoteaddr");
-
-                    b.Property<string>("RemoteMchineInfo")
-                        .HasColumnType("text")
-                        .HasColumnName("remotemchineinfo");
-
-                    b.Property<int>("RoleId")
-                        .HasColumnType("integer")
-                        .HasColumnName("roleid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MenuId");
-
-                    b.HasIndex("RoleId");
-
-                    b.ToTable("rolemenupermission", "helpdesk", t =>
-                        {
-                            t.HasComment("역할별 메뉴 상세 권한 엔티티");
-                        });
-                });
-
             modelBuilder.Entity("HelpDeskServer.Models.Schedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1579,7 +1108,7 @@ namespace HelpDeskServer.Migrations
                     b.Property<string>("CompanyId")
                         .HasColumnType("text")
                         .HasColumnName("companyid")
-                        .HasComment("특정 회사 식별자 (IsCommon 이 false 일 때 사용).\n            포털(scom.companies.id)의 값이다.");
+                        .HasComment("특정 회사 식별자 (IsCommon 이 false 일 때 사용). 포털(scom.companies.id)의 값이다.");
 
                     b.Property<DateTime?>("CompletedDate")
                         .HasColumnType("timestamp with time zone")
@@ -1702,7 +1231,7 @@ namespace HelpDeskServer.Migrations
                     b.Property<string>("CompanyId")
                         .HasColumnType("text")
                         .HasColumnName("companyid")
-                        .HasComment("고객사 식별자 — 포털(scom.companies.id)의 값이다.\n            헬프데스크에는 회사 표가 없으므로 탐색 속성도 없다.");
+                        .HasComment("고객사 식별자 — 포털(scom.companies.id)의 값이다. 헬프데스크에는 회사 표가 없으므로 탐색 속성도 없다.");
 
                     b.HasKey("TeamId", "CompanyId");
 
@@ -1910,7 +1439,7 @@ namespace HelpDeskServer.Migrations
                     b.Property<decimal>("Progress")
                         .HasColumnType("numeric")
                         .HasColumnName("progress")
-                        .HasComment("진행률(%)  \n            0 ~ 100 사이 값");
+                        .HasComment("진행률(%) 0 ~ 100 사이 값");
 
                     b.Property<int?>("ProjectId")
                         .HasColumnType("integer")
@@ -1970,7 +1499,7 @@ namespace HelpDeskServer.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("wbscode")
-                        .HasComment("WBS 코드 (예: 1.1.2)  \n            계층 구조를 표현하기 위한 식별용 코드");
+                        .HasComment("WBS 코드 (예: 1.1.2) 계층 구조를 표현하기 위한 식별용 코드");
 
                     b.Property<int?>("WbsLevel")
                         .HasColumnType("integer")
@@ -2008,7 +1537,7 @@ namespace HelpDeskServer.Migrations
 
                     b.ToTable("wbs", "helpdesk", t =>
                         {
-                            t.HasComment("프로젝트 WBS(Work Breakdown Structure) 엔티티\n            대규모 프로젝트에서 작업 단위, 일정, 담당자, 진행률, 리스크 등을 관리");
+                            t.HasComment("프로젝트 WBS(Work Breakdown Structure) 엔티티 대규모 프로젝트에서 작업 단위, 일정, 담당자, 진행률, 리스크 등을 관리");
                         });
                 });
 
@@ -2364,17 +1893,6 @@ namespace HelpDeskServer.Migrations
                     b.Navigation("Team");
                 });
 
-            modelBuilder.Entity("HelpDeskServer.Models.AppUserRole", b =>
-                {
-                    b.HasOne("HelpDeskServer.Models.AppRole", "Role")
-                        .WithMany("UserRoles")
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Role");
-                });
-
             modelBuilder.Entity("HelpDeskServer.Models.BinarySample", b =>
                 {
                     b.HasOne("HelpDeskServer.Utilities.MC_Models", null)
@@ -2420,26 +1938,6 @@ namespace HelpDeskServer.Migrations
                     b.Navigation("Customer");
                 });
 
-            modelBuilder.Entity("HelpDeskServer.Models.Menu", b =>
-                {
-                    b.HasOne("HelpDeskServer.Models.Menu", "Parent")
-                        .WithMany("Children")
-                        .HasForeignKey("ParentId");
-
-                    b.Navigation("Parent");
-                });
-
-            modelBuilder.Entity("HelpDeskServer.Models.MenuRole", b =>
-                {
-                    b.HasOne("HelpDeskServer.Models.Menu", "Menu")
-                        .WithMany("MenuRoles")
-                        .HasForeignKey("MenuId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Menu");
-                });
-
             modelBuilder.Entity("HelpDeskServer.Models.Project", b =>
                 {
                     b.HasOne("HelpDeskServer.Models.Team", "Team")
@@ -2477,25 +1975,6 @@ namespace HelpDeskServer.Migrations
                     b.Navigation("Admin");
 
                     b.Navigation("Customer");
-                });
-
-            modelBuilder.Entity("HelpDeskServer.Models.RoleMenuPermission", b =>
-                {
-                    b.HasOne("HelpDeskServer.Models.Menu", "Menu")
-                        .WithMany()
-                        .HasForeignKey("MenuId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("HelpDeskServer.Models.AppRole", "Role")
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Menu");
-
-                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("HelpDeskServer.Models.TeamCompany", b =>
@@ -2618,11 +2097,6 @@ namespace HelpDeskServer.Migrations
                     b.Navigation("AssignedRequests");
                 });
 
-            modelBuilder.Entity("HelpDeskServer.Models.AppRole", b =>
-                {
-                    b.Navigation("UserRoles");
-                });
-
             modelBuilder.Entity("HelpDeskServer.Models.Customer", b =>
                 {
                     b.Navigation("ImprovementRequests");
@@ -2636,13 +2110,6 @@ namespace HelpDeskServer.Migrations
             modelBuilder.Entity("HelpDeskServer.Models.ImprovementRequest", b =>
                 {
                     b.Navigation("Comments");
-                });
-
-            modelBuilder.Entity("HelpDeskServer.Models.Menu", b =>
-                {
-                    b.Navigation("Children");
-
-                    b.Navigation("MenuRoles");
                 });
 
             modelBuilder.Entity("HelpDeskServer.Models.PushMessage", b =>

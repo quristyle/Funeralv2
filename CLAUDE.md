@@ -215,6 +215,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   열여섯의 조사표와, 역할·이벤트·길을 매는 규칙(정책 → 본인 설정 → 구독)
 - [docs/helpdesk-status-notify.md](docs/helpdesk-status-notify.md) — 요청글
   접수·완료·종료 알림: 구독표가 둘로 갈려 **완료 알림이 0 통**이던 까닭과 고친 길
+- [docs/helpdesk-soft-delete.md](docs/helpdesk-soft-delete.md) — 요청글 삭제는 지움 표시뿐이고
+  보기 · 복원 · **완전삭제(첨부 · 본문 그림 · 댓글까지)**는 시스템관리자만 한다. 가리는 자리는 전역 걸름 하나
 - [docs/screen-access.md](docs/screen-access.md) — 메뉴에 없는 화면이 주소만으로
   열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
 - [docs/account-activity.md](docs/account-activity.md) — 계정의 마지막 로그인과

@@ -293,21 +293,16 @@ public static class CommentEndpoints {
         throw new InvalidOperationException("완료되거나 종료된 요청의 댓글은 삭제할 수 없습니다.");
       }
 
-      var storageBase = Environment.GetEnvironmentVariable("ImageStorage_BasePath") ?? "/home/lee/JinHelpContents/reqs";
-
-      await FileUtil.DeleteImageFileDir(storageBase, "cmt_" + id.ToString());
-
-      // 삭제 flag 처리하자.
-
-
-
+      // 줄도 그림도 지우지 않고 지움 표시만 세운다. 실제로 지우는 것은 시스템관리자의 완전삭제(/purge)다.
       comment.IsDel = true;
       comment.DeletedAt = DateTime.UtcNow;
 
-
-      //db.Comments.Remove(comment);
       await db.SaveChangesAsync();
       return new { DeletedId = id };
     }, "Comment deleted successfully."));
+
+    // 완전삭제 — 시스템관리자만, 지움 표시가 선 댓글만. 첨부 · 본문 그림까지 지우고 답글은 부모로 옮겨 단다.
+    group.MapDelete("/{id}/purge", (IRequestPurger purger, int id, HttpContext http) =>
+        ApiResponseBuilder.CreateAsync(() => purger.PurgeCommentAsync(id, http), "Comment purged successfully."));
   }
 }

@@ -68,7 +68,8 @@ public partial class RequestManage : IDisposable
         int? SelectedId,
         int Take,
         int Batches,
-        long Version);
+        long Version,
+        bool Trash);
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -78,7 +79,8 @@ public partial class RequestManage : IDisposable
         SchSummary.NameOf(Context.AdminOptions, o => o.Value, o => o.Label, _adminId),
         SchSummary.Or(_keyword),
         PeriodSummary,
-        SchSummary.On(_onlyOpen, "처리 중인 것만"));
+        SchSummary.On(_onlyOpen, "처리 중인 것만"),
+        SchSummary.On(_trash, "삭제된 글"));
 
     /// <summary>고른 회사를 한 줄로. 아무것도 안 골랐으면 「전체」.</summary>
     private string CompanySummary => _companyIds.Count == 0
@@ -153,6 +155,9 @@ public partial class RequestManage : IDisposable
     private string? _requesterId;
     private string? _adminId;
     private bool _onlyOpen = true;
+
+    /// <summary>휴지통 — 지운 글만 본다(시스템관리자). 켜면 상태 기본 조건(처리 중 · Delete 빼기)을 걸지 않는다.</summary>
+    private bool _trash;
 
     /// <summary>기간을 무엇으로 재나. <see cref="RequestedBasis"/> · <see cref="ResolvedBasis"/>.</summary>
     private string _basis = RequestedBasis;
@@ -289,6 +294,7 @@ public partial class RequestManage : IDisposable
         _adminId = kept.AdminId;
         _keyword = kept.Keyword;
         _onlyOpen = kept.OnlyOpen;
+        _trash = kept.Trash;
         _basis = kept.Basis;
         _from = kept.From;
         _to = kept.To;
@@ -377,7 +383,7 @@ public partial class RequestManage : IDisposable
         Screen.Set(StateKey, new Kept(
             _companyIds, _requesterId, _statuses, _adminId, _keyword, _onlyOpen,
             _basis, _from, _to,
-            _rows, _total, _selected?.Id, _take, _batches, Changes.Version));
+            _rows, _total, _selected?.Id, _take, _batches, Changes.Version, _trash));
     }
 
     /// <summary>목록을 바꾸는 바깥 소식(새 등록 · 상세에서 바꾼 요청)을 듣거나 끊는다.</summary>
@@ -547,10 +553,20 @@ public partial class RequestManage : IDisposable
             query["title_like"] = _keyword.Trim();
         }
 
+        if (_trash)
+        {
+            // 지운 글만 준다. 서버가 시스템관리자가 아니면 막는다.
+            query["trash"] = "true";
+        }
+
         if (_statuses.Count > 0)
         {
             // 여러 값의 구분자는 | 다(쉼표는 서버가 값 하나로 읽어 400).
             query["status_in"] = string.Join("|", _statuses);
+        }
+        else if (_trash)
+        {
+            // 휴지통에서는 지울 때의 상태가 무엇이든 다 보인다.
         }
         else if (_onlyOpen)
         {
@@ -665,7 +681,7 @@ public partial class RequestManage : IDisposable
 
     // 묻지 않고 바로 처리한다. 문턱은 줄 폭의 1/4 로 두어 비낀 손가락을 막는다(js/request-swipe.js).
 
-    // 삭제는 되돌릴 수 없어 시스템관리자에게만 열고(CanDelete), 목록은 그 줄만 고쳐 쓴다 — ReloadAsync 는 꺼낸 줄 수를 되감는다.
+    // 삭제는 시스템관리자에게만 열고(CanDelete), 목록은 그 줄만 고쳐 쓴다 — ReloadAsync 는 꺼낸 줄 수를 되감는다. 지운 글은 휴지통(「삭제된 글」)에서 복원·완전삭제한다.
 
     /// <summary>밀어서 접수할 수 있는가 — 담당자이고 이 화면에 수정 권한이 있는가. 상세의 접수 단추와 같은 잣대다.
     /// IsLinked 가 아니라 IsAdmin 을 보는 까닭: 포털 역할로만 담당자인 사람의 admin 줄은 서버가 접수하는 순간 만들어진다.</summary>
@@ -677,7 +693,7 @@ public partial class RequestManage : IDisposable
         || (r.CompanyId is { } c && _handledCompanyIds.Contains(c, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>밀어서 지울 수 있는가 — 시스템관리자만. 상세의 삭제 단추와 같은 역할 하나로 가른다.</summary>
-    private bool CanDelete => Context.IsSystemAdmin;
+    private bool CanDelete => Context.IsSystemAdmin && !_trash;
 
     /// <summary>오른쪽으로 민 줄을 접수한다. 상태만 보내고 접수자는 서버가 정한다(화면의 HelpdeskUserId 는 담당자 계정일 때만 admin.id 라 실으면 남이 박힌다).
     /// 접수한 줄은 목록에 남긴다 — 걷으면 접수와 삭제가 똑같이 사라져 무슨 일이 있었는지 알 수 없다.</summary>
@@ -725,7 +741,7 @@ public partial class RequestManage : IDisposable
             ?? "담당자",
     };
 
-    /// <summary>왼쪽으로 민 줄을 지운다. 되돌릴 수 없다 — 서버가 줄을 통째로 지우고 그림 폴더까지 치운다.
+    /// <summary>왼쪽으로 민 줄을 지운다. 서버는 지움 표시만 세운다 — 휴지통에서 복원하거나 완전삭제한다.
     /// 전체 건수도 함께 줄인다(안 줄이면 더보기 남은 수가 옛 숫자라 누를 수 없는 단추가 남는다). 꺼내 둔 줄 수(_take)는 그대로 둔다 — 줄이면 본 적 없는 줄이 밀려 내려간다.</summary>
     private async Task<bool> DeleteSwipedAsync(ImprovementRequest r)
     {

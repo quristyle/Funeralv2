@@ -43,6 +43,12 @@ public partial class CommentThread
     /// <summary>보내지 못한 댓글을 버린다.</summary>
     [Parameter] public EventCallback<int> OnDiscard { get; set; }
 
+    /// <summary>지운 댓글을 완전삭제할 수 있는가 — 시스템관리자만. 지운 줄 자리에 「완전삭제」 단추가 선다.</summary>
+    [Parameter] public bool CanPurge { get; set; }
+
+    /// <summary>지운 댓글 하나를 완전삭제한다(첨부·그림까지). 성공 여부를 돌려준다.</summary>
+    [Parameter] public Func<int, Task<bool>>? OnPurge { get; set; }
+
     /// <summary>아직 서버에 안 들어간 줄인가. 화면이 음수 번호로 끼워 둔다 — 답글·삭제를 걸 번호가 아직 없다.</summary>
     private static bool IsPending(CommentNode node) => node.Comment.Id < 0;
 
@@ -72,6 +78,9 @@ public partial class CommentThread
 
     private Task<bool> DeleteAsync(CommentNode node) =>
         OnDelete is null ? Task.FromResult(false) : OnDelete(node.Comment.Id);
+
+    private Task<bool> PurgeAsync(CommentNode node) =>
+        OnPurge is null ? Task.FromResult(false) : OnPurge(node.Comment.Id);
 
     private static string FileUrl(Attachment file)
     {

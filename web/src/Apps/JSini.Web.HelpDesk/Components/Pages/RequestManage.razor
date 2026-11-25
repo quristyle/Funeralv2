@@ -72,6 +72,14 @@
             <DxCheckBox @bind-Checked="_onlyOpen" @bind-Checked:after="ReloadAsync">처리 중인 것만</DxCheckBox>
         </CommSchItem>
 
+        @* 휴지통 — 지운 글만 본다. 시스템관리자만 서버가 받아 준다. 거기서 글을 열어 복원하거나 완전삭제한다. *@
+        @if (Context.IsSystemAdmin)
+        {
+            <CommSchItem>
+                <DxCheckBox @bind-Checked="_trash" @bind-Checked:after="ReloadAsync">삭제된 글</DxCheckBox>
+            </CommSchItem>
+        }
+
         @* 기간 기준 · 날짜 둘 · 「~」는 한 덩이다. 기준을 바꾸면 같은 날짜가 다른 칸을 재고, 날짜를 둘 다 비우면 기준은 아무 일도 안 한다(ApplyPeriod). *@
 
         @* 기준은 접어 두지 않는다 — 접힌 고르개는 지금 무엇으로 재는지를 감춘다. 조건이 여섯을 넘으면 격자로 서므로 이 칸은 줄 전체를 쓰는 맨 뒤에 둔다. *@

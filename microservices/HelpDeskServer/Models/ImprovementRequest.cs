@@ -70,6 +70,16 @@ namespace HelpDeskServer.Models {
     /// <summary>개선 유형</summary>
     public ImprovementType IpType { get; set; } = ImprovementType.Improvement;
 
+    /// <summary>지움 표시. 지운 글은 줄을 남기고 이 칸만 세운다 — 전역 걸름(AppDbContext)이 시스템관리자 길 말고는 모두 가린다.
+    /// 줄과 첨부·그림·댓글을 실제로 지우는 것은 시스템관리자의 완전삭제(RequestPurger)뿐이다.</summary>
+    public bool IsDel { get; set; }
+
+    /// <summary>지운 시각(UTC).</summary>
+    public DateTime? DeletedAt { get; set; }
+
+    /// <summary>지운 사람(포털 아이디).</summary>
+    public string? DeletedBy { get; set; }
+
     /// <summary>이 요청에 달린 덧글 목록</summary>
     public ICollection<ImprovementComment> Comments { get; set; } = new List<ImprovementComment>();
   }

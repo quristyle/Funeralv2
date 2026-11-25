@@ -35,6 +35,16 @@
             @if (node.Comment.IsDel)
             {
                 <div class="hd-cmt__body hd-cmt__body--gone">삭제된 댓글입니다.</div>
+                @if (CanPurge && OnPurge is not null)
+                {
+                    <div class="hd-cmt__acts">
+                        <DxButton Text="완전삭제"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  SizeMode="SizeMode.Small"
+                                  CssClass="hd-cmt__act hd-cmt__act--text hd-cmt__act--del"
+                                  Click="@(() => PurgeAsync(node))" />
+                    </div>
+                }
             }
             else
             {
@@ -127,6 +137,8 @@
                                    OnToggle="@OnToggle"
                                    OnReply="@OnReply"
                                    OnDelete="@OnDelete"
+                                   CanPurge="@CanPurge"
+                                   OnPurge="@OnPurge"
                                    FailedIds="@FailedIds"
                                    OnRetry="@OnRetry"
                                    OnDiscard="@OnDiscard" />

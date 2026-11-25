@@ -293,6 +293,9 @@ public class AppDbContext : DbContext {
     modelBuilder.Entity<Admin>().HasQueryFilter(a => !a.IsDeleted);
     // Customer Soft Delete Filter
     modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
+    // 지운 요청글과 그 댓글은 어느 길에서도 안 보인다. 보는 것은 시스템관리자의 길(IgnoreQueryFilters)뿐이다 — 목록·집계·알림·업무 비서가 따로 거를 필요가 없다.
+    modelBuilder.Entity<ImprovementRequest>().HasQueryFilter(r => !r.IsDel);
+    modelBuilder.Entity<ImprovementComment>().HasQueryFilter(c => !c.Request!.IsDel);
 
     // MC_Models mapping
     modelBuilder.Entity<MC_Models>().ToTable("mc_models");

@@ -12,6 +12,15 @@ public static class HelpdeskAccess {
     if (!me.IsAdmin) throw new UnauthorizedAccessException("관리자 권한이 필요합니다.");
   }
 
+  /// <summary>시스템관리자인가 — 지운 요청글을 보고 되살리고 완전삭제하는 사람이다. 관리자(IsAdmin)보다 좁다.</summary>
+  public static bool IsSystemAdmin(this HelpdeskPrincipal me) =>
+      me.JsiniRoles.Any(r => string.Equals(r, RequestCompanyPolicy.SystemAdminRole, StringComparison.OrdinalIgnoreCase));
+
+  /// <summary>시스템관리자가 아니면 막는다.</summary>
+  public static void RequireSystemAdmin(this HelpdeskPrincipal me) {
+    if (!me.IsSystemAdmin()) throw new UnauthorizedAccessException("시스템관리자 권한이 필요합니다.");
+  }
+
   /// <summary>글을 올린 사람인가. 포털 아이디(createdBy)를 먼저 보고, 옛 글은 연결된 고객 번호로 본다.</summary>
   public static bool IsRequestOwner(this HelpdeskPrincipal me, ImprovementRequest req) {
     if (!string.IsNullOrWhiteSpace(me.JsiniUserId) &&

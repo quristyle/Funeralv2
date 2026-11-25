@@ -301,7 +301,10 @@ public static class RequestEndpoints {
         ApiResponseBuilder.CreateAsync(async () => {
           var ct = http.RequestAborted;
 
-          var request = await db.Requests
+          // 지운 글은 시스템관리자에게만 열린다(되살리기 · 완전삭제를 하러 온다). 나머지에게는 없는 글이다.
+          var requests = http.GetHelpdeskPrincipal().IsSystemAdmin() ? db.Requests.IgnoreQueryFilters() : db.Requests;
+
+          var request = await requests
               .AsNoTracking()
               .Include(r => r.Comments)
               .Include(r => r.Customer)
@@ -327,12 +330,17 @@ public static class RequestEndpoints {
         }));
 
     // 특정 요청에 대한 덧글 목록 조회
-    group.MapGet("/{id}/comments", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {
-      // 지움 표시가 선 줄은 답글을 떠받치고 있을 때만 남긴다(가운데를 고른 까닭은 CommentVisibility 머리말).
-      var comments = CommentVisibility.Visible(await db.Comments
+    group.MapGet("/{id}/comments", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
+      // 시스템관리자는 지운 글의 댓글과 지운 댓글 전부를 본다 — 완전삭제할 자리를 찾아야 한다. 내용은 그래도 가린다.
+      var sysAdmin = http.GetHelpdeskPrincipal().IsSystemAdmin();
+      var source = sysAdmin ? db.Comments.IgnoreQueryFilters() : db.Comments;
+      var rows = await source
               .Where(c => c.RequestId == id)
               .OrderBy(c => c.CreatedAt)
-              .ToListAsync());
+              .ToListAsync();
+
+      // 지움 표시가 선 줄은 답글을 떠받치고 있을 때만 남긴다(가운데를 고른 까닭은 CommentVisibility 머리말).
+      var comments = sysAdmin ? rows : CommentVisibility.Visible(rows);
 
       var adminIds = comments.Where(c => c.AuthorType == "admin").Select(c => c.AuthorId).Distinct().ToList();
       var customerIds = comments.Where(c => c.AuthorType != "admin").Select(c => c.AuthorId).Distinct().ToList();
@@ -396,9 +404,19 @@ public static class RequestEndpoints {
 
       var finalQuery = QueryCollectionMerger.Merge(http.Request.Query, bodyQuery);
 
+      // 휴지통 — trash=true 면 지운 글만 준다. 시스템관리자만. 거르개에 안 흘리게 열쇠를 걷는다(모르는 칸으로 읽혀 400 이 난다).
+      var trash = finalQuery.TryGetValue("trash", out var trashVal)
+          && string.Equals(trashVal.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+      if (finalQuery.ContainsKey("trash")) {
+        finalQuery = new QueryCollection(finalQuery
+            .Where(kv => !kv.Key.Equals("trash", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(kv => kv.Key, kv => kv.Value));
+      }
+      if (trash) http.GetHelpdeskPrincipal().RequireSystemAdmin();
 
+      var baseRequests = trash ? db.Requests.IgnoreQueryFilters().Where(r => r.IsDel) : db.Requests;
 
-      var queryWithIncludes = db.Requests
+      var queryWithIncludes = baseRequests
               // 「댓글 N」은 산 것만 센다. 동적 투영을 타면 이 걸름이 묻히므로 받아 놓고 한 번 더 턴다(StripDeletedComments).
               .Include(r => r.Comments.Where(c => !c.IsDel))
               .Include(r => r.Customer)
@@ -859,7 +877,8 @@ public static class RequestEndpoints {
 
 
 
-    // 삭제
+    // 삭제 — 줄을 지우지 않고 지움 표시만 세운다. 본문 그림 · 첨부 · 댓글도 그대로 두고 함께 가려진다(전역 걸름).
+    // 실제로 지우는 것은 시스템관리자의 완전삭제(/purge)뿐이다.
     group.MapDelete("/{id}", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
 
       if (id == 231) throw new Exception("삭제 불가 요청입니다.");
@@ -874,16 +893,33 @@ public static class RequestEndpoints {
         throw new InvalidOperationException("완료되거나 종료된 요청은 삭제할 수 없습니다.");
       }
 
-
-      var storageBase = Environment.GetEnvironmentVariable("ImageStorage_BasePath") ?? "/home/lee/JinHelpContents/reqs";
-      await FileUtil.DeleteImageFileDir(storageBase, id.ToString());
-
-
-      db.Requests.Remove(req);
+      req.IsDel = true;
+      req.DeletedAt = DateTime.UtcNow;
+      req.DeletedBy = http.AuditUser();
       await db.SaveChangesAsync();
 
       return new { DeletedId = id };
     }, "Request deleted successfully."));
+
+    // 되살리기 — 시스템관리자만. 지움 표시를 걷으면 글 · 댓글 · 첨부가 지우기 전 그대로 돌아온다.
+    group.MapPut("/{id}/restore", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
+      http.GetHelpdeskPrincipal().RequireSystemAdmin();
+
+      var req = await db.Requests.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.Id == id);
+      if (req is null) return null;
+      if (!req.IsDel) throw new InvalidOperationException("삭제 처리된 요청이 아닙니다.");
+
+      req.IsDel = false;
+      req.DeletedAt = null;
+      req.DeletedBy = null;
+      await db.SaveChangesAsync();
+
+      return new { RestoredId = id };
+    }, "Request restored successfully."));
+
+    // 완전삭제 — 시스템관리자만, 지움 표시가 선 글만. 댓글 · 첨부 · 본문 그림(FileServer)까지 지운다. 되돌릴 수 없다.
+    group.MapDelete("/{id}/purge", (IRequestPurger purger, int id, HttpContext http) =>
+        ApiResponseBuilder.CreateAsync(() => purger.PurgeRequestAsync(id, http), "Request purged successfully."));
   }
 
   /// <summary>목록 응답에서 지운 댓글을 걷어낸다(「댓글 N」이 산 것만 세도록). 걸름만 믿으면 안 된다 — remove= 가 동적 투영을 타면 걸름이 묻히므로 받은 뒤 한 번 더 턴다.</summary>
