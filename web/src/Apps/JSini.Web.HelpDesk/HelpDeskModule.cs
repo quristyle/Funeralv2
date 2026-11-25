@@ -58,5 +58,8 @@ public sealed class HelpDeskModule : IPortalModule
 
         // 요청 등록을 화면 밖에서 마치는 창구. 등록 화면이 닫힌 뒤에도 회로와 함께 살아 있어야 한다.
         services.AddScoped<RequestSubmitter>();
+
+        // 상세에서 바꾼 요청을 「요청 처리」에 알리는 표시. 회로 수명이라 화면이 바뀌어도 남는다.
+        services.AddScoped<RequestChanges>();
     }
 }

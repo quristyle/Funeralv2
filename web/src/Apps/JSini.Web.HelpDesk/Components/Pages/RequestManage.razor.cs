@@ -21,6 +21,9 @@ public partial class RequestManage : IDisposable
     /// <summary>요청 등록이 뒤에서 마치는 창구. 등록 화면은 누르자마자 이 화면으로 넘어오므로 새 요청은 그 뒤에 들어온다.</summary>
     [Inject] private RequestSubmitter Submitter { get; set; } = default!;
 
+    /// <summary>상세가 요청을 바꿨다는 표시. 맡겨 둔 목록이 그 뒤의 것이 아니면 되살리지 않고 다시 읽는다.</summary>
+    [Inject] private RequestChanges Changes { get; set; } = default!;
+
     // ── 현황판이 싣고 오는 조건 ──
     // 타일이 센 것과 같은 목록을 열려고 주소로 받는다. 주소 이름은 조회 칸과 일대일이다.
 
@@ -64,7 +67,8 @@ public partial class RequestManage : IDisposable
         int Total,
         int? SelectedId,
         int Take,
-        int Batches);
+        int Batches,
+        long Version);
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -264,7 +268,7 @@ public partial class RequestManage : IDisposable
     /// 주소 조건이 있으면 맡겨 둔 짐보다 먼저 푼다(아니면 누른 타일 조건이 지난번 조건에 덮인다).</summary>
     protected override void OnInitialized()
     {
-        Submitter.Created += OnRequestCreated;
+        Listen(true);
 
         if (ApplyQueryConditions())
         {
@@ -299,7 +303,8 @@ public partial class RequestManage : IDisposable
         _batches = kept.Batches;
 
         // 빈손으로 돌아왔으면 조건만 되찾고 다시 묻는다 — 빈 것을 다 읽은 것으로 보면 빈 표가 영영 남는다.
-        _restored = _rows.Count > 0;
+        // 떠나 있는 동안 상세에서 접수·완료·삭제했으면 맡겨 둔 줄은 바뀌기 전 것이다 — 조건만 되찾고 다시 묻는다.
+        _restored = _rows.Count > 0 && kept.Version == Changes.Version;
     }
 
     protected override async Task OnInitializedAsync()
@@ -367,15 +372,30 @@ public partial class RequestManage : IDisposable
     /// 프리렌더에서도 불리며 그때는 빈 것을 맡긴다.</summary>
     public void Dispose()
     {
-        Submitter.Created -= OnRequestCreated;
+        Listen(false);
 
         Screen.Set(StateKey, new Kept(
             _companyIds, _requesterId, _statuses, _adminId, _keyword, _onlyOpen,
             _basis, _from, _to,
-            _rows, _total, _selected?.Id, _take, _batches));
+            _rows, _total, _selected?.Id, _take, _batches, Changes.Version));
     }
 
-    /// <summary>뒤에서 등록이 끝났다 — 목록을 다시 읽어 방금 넣은 요청을 세운다. 맡겨 둔 목록으로 돌아온 길이라도 그렇다.</summary>
+    /// <summary>목록을 바꾸는 바깥 소식(새 등록 · 상세에서 바꾼 요청)을 듣거나 끊는다.</summary>
+    private void Listen(bool on)
+    {
+        if (on)
+        {
+            Submitter.Created += OnRequestCreated;
+            Changes.Changed += OnRequestCreated;
+        }
+        else
+        {
+            Submitter.Created -= OnRequestCreated;
+            Changes.Changed -= OnRequestCreated;
+        }
+    }
+
+    /// <summary>뒤에서 등록이 끝났거나 다른 화면이 요청을 바꿨다 — 목록을 다시 읽는다. 맡겨 둔 목록으로 돌아온 길이라도 그렇다.</summary>
     private void OnRequestCreated(int id) =>
         _ = InvokeAsync(async () =>
         {

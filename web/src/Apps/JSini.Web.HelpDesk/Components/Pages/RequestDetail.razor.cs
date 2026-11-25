@@ -20,6 +20,7 @@ public partial class RequestDetail : IDisposable
     [Inject] private GatewayClient Gateway { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private ImagePreview Preview { get; set; } = default!;
+    [Inject] private RequestChanges Changes { get; set; } = default!;
 
     /// <summary>주소의 요청 키.</summary>
     [Parameter] public string Id { get; set; } = string.Empty;
@@ -150,12 +151,22 @@ public partial class RequestDetail : IDisposable
 
         if (done)
         {
+            NotifyChanged();
             await ReloadAsync();
         }
 
         StateHasChanged();
 
         return done;
+    }
+
+    /// <summary>요청 처리 목록이 돌아올 때 맡겨 둔 줄 대신 다시 읽게 한다.</summary>
+    private void NotifyChanged()
+    {
+        if (int.TryParse(Id, out var id))
+        {
+            Changes.Notify(id);
+        }
     }
 
     /// <summary>「접수」 — 내가 맡는다. 접수자와 접수일자가 박힌다.</summary>
@@ -223,6 +234,7 @@ public partial class RequestDetail : IDisposable
 
         if (done)
         {
+            NotifyChanged();
             var fallback = Tabs.Close(Href);
             Navigation.NavigateTo(fallback ?? "/helpdesk/request/manage");
         }
@@ -558,6 +570,7 @@ public partial class RequestDetail : IDisposable
         }
 
         DeleteFiles(pending.Files);
+        NotifyChanged();
 
         IReadOnlyList<ImprovementComment>? fresh = null;
         try
@@ -743,6 +756,7 @@ public partial class RequestDetail : IDisposable
 
         if (deleted)
         {
+            NotifyChanged();
             await ReloadAsync();
         }
         
