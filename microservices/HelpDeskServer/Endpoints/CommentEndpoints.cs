@@ -150,7 +150,7 @@ public static class CommentEndpoints {
       return comment;
     }));
 
-    group.MapPost("/", (AppDbContext db, ImprovementComment comment, HttpContext http, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender, ICommentNotifier notifier) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPost("/", (AppDbContext db, ImprovementComment comment, HttpContext http, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender, ICommentNotifier notifier, IAssigneeProvisioner assignees, IPortalCompanyDirectory companies) => ApiResponseBuilder.CreateAsync(async () => {
 
       // 1. 원본 요청글 정보 조회 및 상태 확인 (완료/종료 시 댓글 추가 작성 차단)
       var request = await db.Requests.FindAsync(comment.RequestId);
@@ -167,6 +167,18 @@ public static class CommentEndpoints {
       comment.CreatedBy = string.Empty;
       comment.AuthorId = me.HelpdeskUserId ?? 0;
       comment.AuthorType = me.LinkedUserType ?? (me.IsAdmin ? "admin" : "customer");
+
+      // 연결이 없는 처리 담당(관리자 · 이 글의 회사를 맡은 헬프데스크 관리자)은 접수할 때와 같은 담당자 줄을 작성자로 쓴다.
+      // 연결은 만들지 않는다 — 담당자로 이으면 관리자 권한처럼 읽히는 자리가 있다.
+      if (!me.IsLinked) {
+        var ct = http.RequestAborted;
+        var handles = me.IsAdmin
+            || await RequestCompanyPolicy.CanHandleAsync(me, request.CompanyId, companies, ct);
+        if (handles && await assignees.ResolveAsync(me, http.AuditUser(), ct, canHandle: true) is { } adminId) {
+          comment.AuthorId = adminId;
+          comment.AuthorType = "admin";
+        }
+      }
 
       db.Comments.Add(comment);
       await db.SaveChangesAsync();

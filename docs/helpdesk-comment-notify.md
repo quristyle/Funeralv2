@@ -132,6 +132,19 @@
 `SYSTEM_ADMINISTRATOR` 푸시를 끄거나 본인이 「댓글 앱알림」을 끄면 멎는다.
 알림관리 화면의 설명은 `deploy/sql/helpdesk-comment-sysadmin-2026-11-24.sql` 로 고쳤다.
 
+## 헬프데스크 관리자가 맡은 회사의 글에 댓글을 단다 (2026-11-25)
+
+댓글 칸은 **헬프데스크 계정에 이어진 사람**(`auth_user_links`)에게만 섰다. 그 연결은
+요청을 한 번이라도 올린 사람에게만 생기므로, 글을 올린 적 없이 남의 글을 처리만
+하는 헬프데스크 관리자(주우인 · `HELPDESK_MANAGER`)는 메뉴 권한이 다 켜져 있어도
+댓글 칸이 아예 없었다.
+
+- 화면(`RequestDetail.CanWrite`): 연결이 없어도 이 글의 회사를 맡았으면(`_handlesCompany`) 연다.
+- 서버(`POST /api/comments`): 연결이 없는 관리자 · 맡은 회사의 헬프데스크 관리자는
+  접수할 때와 같은 담당자 줄(`IAssigneeProvisioner`)을 작성자로 박는다(`authortype = admin`).
+  **연결은 만들지 않는다.**
+- 그래서 그 사람은 제 댓글을 화면에서 지울 수 없다(지우기 단추가 연결된 번호로 주인을 가른다).
+
 ## 받는 사람이 끄는 자리
 
 환경설정(`/funeral/setting/environment`)의 알림 칸에 스위치 둘이 늘었다.

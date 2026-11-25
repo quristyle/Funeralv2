@@ -16,7 +16,7 @@ public sealed class RequestCompletedStatusGuardTests
         Assert.Contains("bool IsFinished => Status is \"Completed\" or \"UserCompleted\"", detail);
 
         // 댓글 작성 가능 여부에 IsFinished 반영
-        Assert.Contains("CanWrite => !IsFinished && Context.IsLinked", detail);
+        Assert.Contains("CanWrite => !IsFinished && (Context.IsLinked || _handlesCompany)", detail);
 
         // 완료/종료 시 안내 문구 표시
         Assert.Contains("완료되거나 종료된 요청에는 댓글을 남길 수 없습니다.", detail);

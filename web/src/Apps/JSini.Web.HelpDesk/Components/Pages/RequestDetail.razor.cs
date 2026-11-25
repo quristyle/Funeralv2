@@ -60,8 +60,9 @@ public partial class RequestDetail : IDisposable
     /// <summary>완료 또는 종료된 요청인가 — 댓글 작성, 삭제가 제한된다.</summary>
     private bool IsFinished => Status is "Completed" or "UserCompleted";
 
-    /// <summary>댓글을 남길 수 있는가. 댓글 칸과 답글 단추가 이 값 하나를 본다.</summary>
-    private bool CanWrite => !IsFinished && Context.IsLinked && Permissions.Can(MenuPath, MenuAction.Create);
+    /// <summary>댓글을 남길 수 있는가. 댓글 칸과 답글 단추가 이 값 하나를 본다.
+    /// 연결이 없어도 이 글의 회사를 맡은 헬프데스크 관리자는 쓴다 — 작성자는 서버가 담당자 줄로 정한다.</summary>
+    private bool CanWrite => !IsFinished && (Context.IsLinked || _handlesCompany) && Permissions.Can(MenuPath, MenuAction.Create);
 
     /// <summary>시스템관리자이고 아직 안 끝난 요청이면 지울 수 있다.</summary>
     /// <summary>휴대폰인가. 단추 줄을 「처리」 하나로 접는 데 쓴다 — Blazor Server 는 브라우저 폭을 모른다.</summary>
