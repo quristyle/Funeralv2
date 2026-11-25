@@ -135,7 +135,7 @@ public partial class RequestDetail : IDisposable
     };
 
     /// <summary>상태만 보내고 접수자는 서버가 정한다. 반영했는지를 돌려준다 — 재요청이 그것으로 갈린다.</summary>
-    private async Task<bool> ChangeStatusAsync(string status, string label, string? ask = null)
+    private async Task<bool> ChangeStatusAsync(string status, string label, string? ask = null, bool reload = true)
     {
         if (!int.TryParse(Id, out _))
         {
@@ -166,7 +166,11 @@ public partial class RequestDetail : IDisposable
         if (done)
         {
             NotifyChanged();
-            await ReloadAsync();
+
+            if (reload)
+            {
+                await ReloadAsync();
+            }
         }
 
         StateHasChanged();
@@ -187,7 +191,25 @@ public partial class RequestDetail : IDisposable
     private Task AcceptAsync() => ChangeStatusAsync("InProgress", "접수");
 
     /// <summary>「완료」 — 「대기」에서 누르면 접수까지 함께 반영된다.</summary>
-    private Task CompleteAsync() => ChangeStatusAsync("Completed", "완료");
+    private async Task CompleteAsync()
+    {
+        if (await ChangeStatusAsync("Completed", "완료", reload: false))
+        {
+            BackToManage();
+        }
+    }
+
+    /// <summary>요청 처리 목록.</summary>
+    private const string ManageHref = "/helpdesk/request/manage";
+
+    /// <summary>이 탭을 닫고 요청 처리로 간다. 그 탭이 열려 있으면 그것이 켜지고, 없으면 레이아웃이 새로 연다.
+    /// 요청 처리를 볼 수 없는 사람(회사를 맡은 헬프데스크 관리자 등)은 닫은 자리의 옆 탭으로 간다.</summary>
+    private void BackToManage()
+    {
+        var fallback = Tabs.Close(Href);
+        var canManage = Tabs.CanShow?.Invoke(ManageHref) ?? true;
+        Navigation.NavigateTo(canManage ? ManageHref : fallback ?? ManageHref);
+    }
 
     /// <summary>「지시작업으로보내기」 — AI 작업 지시로 넘긴다.</summary>
     private async Task SendToAiTaskAsync()
