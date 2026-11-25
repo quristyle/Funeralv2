@@ -18,6 +18,9 @@ public partial class RequestCards : RequestRowList, IAsyncDisposable
     /// <summary>밀어서 접수할 수 있는가. 화면이 신원과 권한을 보고 넘긴다.</summary>
     [Parameter] public bool CanAccept { get; set; }
 
+    /// <summary>줄마다 접수할 수 있는지 더 좁힌다(헬프데스크 관리자는 맡은 회사의 줄만). 안 주면 CanAccept 하나로 가른다.</summary>
+    [Parameter] public Func<ImprovementRequest, bool>? CanAcceptRow { get; set; }
+
     /// <summary>밀어서 지울 수 있는가. 화면이 신원을 보고 넘긴다.</summary>
     [Parameter] public bool CanDelete { get; set; }
 
@@ -38,7 +41,7 @@ public partial class RequestCards : RequestRowList, IAsyncDisposable
 
     /// <summary>오른쪽으로 밀어 접수할 수 있는 줄인가 — 「대기」일 때만. 이미 누가 맡은 건을 가로채는 길을 열지 않는다(상세의 접수 단추와 같은 조건).</summary>
     private bool AcceptableOf(ImprovementRequest r) =>
-        CanAccept && Accept is not null && r.Status is PendingStatus;
+        CanAccept && Accept is not null && r.Status is PendingStatus && (CanAcceptRow?.Invoke(r) ?? true);
 
     /// <summary>왼쪽으로 밀어 지울 수 있는 줄인가 — 「대기」일 때만. 상세의 삭제는 상태를 보지 않지만 손짓에는 「대기」만 내놓는다 — 진행·끝난 건은 댓글과 기록이 딸려 있고 서버 삭제는 되돌릴 수 없다.</summary>
     private bool RemovableOf(ImprovementRequest r) =>

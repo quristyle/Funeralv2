@@ -68,7 +68,7 @@ public partial class RequestManage : IDisposable
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
-        Context.IsSystemAdmin ? CompanySummary : MyCompanyName,
+        CanPickCompany ? CompanySummary : MyCompanyName,
         SchSummary.NameOf(RequesterFilterOptions, o => o.Value, o => o.Label, _requesterId),
         StatusSummary,
         SchSummary.NameOf(Context.AdminOptions, o => o.Value, o => o.Label, _adminId),
@@ -80,7 +80,7 @@ public partial class RequestManage : IDisposable
     private string CompanySummary => _companyIds.Count == 0
         ? SchSummary.Any
         : string.Join(", ", _companyIds.Select(id =>
-            Context.CompanyOptions.FirstOrDefault(o => o.Value == id)?.Label ?? id));
+            CompanyChoices.FirstOrDefault(o => o.Value == id)?.Label ?? id));
 
     /// <summary>고른 상태를 한 줄로. 아무것도 안 골랐으면 「전체」(하나짜리 NameOf 를 여럿으로 옮긴 것).</summary>
     private string StatusSummary => _statuses.Count == 0
@@ -186,11 +186,40 @@ public partial class RequestManage : IDisposable
         }
     }
 
-    /// <summary>조회에 실을 회사들. 시스템관리자만 고른 것을 쓰고, 나머지는 제 회사 하나다.</summary>
-    private IReadOnlyList<string> SearchCompanyIds =>
-        Context.IsSystemAdmin
-            ? _companyIds
-            : Context.CompanyId is { } mine ? [mine] : [];
+    /// <summary>헬프데스크 관리자가 고를 수 있는 회사(제 회사 + 맡은 회사). 시스템관리자·고객에게는 비어 있다.</summary>
+    private IReadOnlyList<BizOption> _managerCompanies = [];
+
+    /// <summary>헬프데스크 관리자가 접수·완료할 수 있는 회사(맡은 회사). 제 회사는 맡지 않았으면 들지 않는다.</summary>
+    private IReadOnlyList<string> _handledCompanyIds = [];
+
+    /// <summary>회사를 고를 수 있는가 — 시스템관리자, 또는 고를 회사가 둘 이상인 헬프데스크 관리자.</summary>
+    private bool CanPickCompany => Context.IsSystemAdmin || _managerCompanies.Count > 1;
+
+    /// <summary>회사 고르개의 목록.</summary>
+    private IReadOnlyList<BizOption> CompanyChoices =>
+        Context.IsSystemAdmin ? Context.CompanyOptions : _managerCompanies;
+
+    /// <summary>조회에 실을 회사들. 시스템관리자는 고른 것(비면 전체), 헬프데스크 관리자는 고를 수 있는 것 안에서 고른 것(비면 그 전부), 나머지는 제 회사 하나다.
+    /// 서버는 목록을 권한으로 거르지 않으므로 여기가 못 박는 자리다.</summary>
+    private IReadOnlyList<string> SearchCompanyIds
+    {
+        get
+        {
+            if (Context.IsSystemAdmin)
+            {
+                return _companyIds;
+            }
+
+            if (_managerCompanies.Count > 1)
+            {
+                var allowed = _managerCompanies.Select(o => o.Value!).ToList();
+                var picked = _companyIds.Where(allowed.Contains).ToList();
+                return picked.Count > 0 ? picked : allowed;
+            }
+
+            return Context.CompanyId is { } mine ? [mine] : [];
+        }
+    }
 
     private static readonly SchOption[] StatusOptions =
     [
@@ -281,7 +310,21 @@ public partial class RequestManage : IDisposable
 
         if (!Context.IsSystemAdmin)
         {
-            _companyIds = Context.CompanyId is { } mine ? [mine] : [];
+            _managerCompanies = await Context.LoadManageCompanyOptionsAsync();
+            _handledCompanyIds = await Context.LoadHandledCompanyIdsAsync();
+
+            if (_managerCompanies.Count > 1)
+            {
+                // 헬프데스크 관리자 — 주소·돌아온 길의 회사는 고를 수 있는 것만 남기고, 처음 열면 맡은 회사를 미리 고른다.
+                var allowed = _managerCompanies.Select(o => o.Value).ToHashSet();
+                _companyIds = _seeded
+                    ? [.. _companyIds.Where(allowed.Contains)]
+                    : [.. _handledCompanyIds.Where(allowed.Contains)];
+            }
+            else
+            {
+                _companyIds = Context.CompanyId is { } mine ? [mine] : [];
+            }
         }
         else if (!_seeded)
         {
@@ -292,7 +335,8 @@ public partial class RequestManage : IDisposable
 
         // 처음 여는 고객에게는 요청자를 나로 미리 고르고 「처리 중인 것만」을 끈다. 같은 회사 다른 사람으로 바꿀 수 있다.
         // 주소·돌아온 길이면 그 조건을 그대로 둔다 — 현황판 타일은 회사 전체를 센다.
-        if (Context.CustomerId is { } me && !_seeded)
+        // 맡은 회사가 있는 헬프데스크 관리자는 고객이라도 남의 글을 처리하러 온 것이라 나로 좁히지 않는다.
+        if (Context.CustomerId is { } me && !_seeded && _handledCompanyIds.Count == 0)
         {
             _requesterId = me.ToString(CultureInfo.InvariantCulture);
             _onlyOpen = false;
@@ -408,7 +452,7 @@ public partial class RequestManage : IDisposable
         // 받아 둔 묶음도 버린다 — 안 버리면 다음 더 읽기가 새 조건의 쪽 넷을 달라고 한다.
         _batches = 0;
 
-        if (!Context.IsSystemAdmin && Context.CompanyId is null)
+        if (!Context.IsSystemAdmin && Context.CompanyId is null && _managerCompanies.Count == 0)
         {
             _rows = [];
             _total = 0;
@@ -605,7 +649,12 @@ public partial class RequestManage : IDisposable
 
     /// <summary>밀어서 접수할 수 있는가 — 담당자이고 이 화면에 수정 권한이 있는가. 상세의 접수 단추와 같은 잣대다.
     /// IsLinked 가 아니라 IsAdmin 을 보는 까닭: 포털 역할로만 담당자인 사람의 admin 줄은 서버가 접수하는 순간 만들어진다.</summary>
-    private bool CanAccept => Context.IsAdmin && Can(MenuAction.Update);
+    private bool CanAccept => (Context.IsAdmin || _handledCompanyIds.Count > 0) && Can(MenuAction.Update);
+
+    /// <summary>이 줄을 접수할 수 있는가 — 관리자는 모든 줄, 헬프데스크 관리자는 맡은 회사의 줄만(서버 RequestCompanyPolicy.CanHandleAsync 와 같다).</summary>
+    private bool CanAcceptRow(ImprovementRequest r) =>
+        Context.IsAdmin
+        || (r.CompanyId is { } c && _handledCompanyIds.Contains(c, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>밀어서 지울 수 있는가 — 시스템관리자만. 상세의 삭제 단추와 같은 역할 하나로 가른다.</summary>
     private bool CanDelete => Context.IsSystemAdmin;
@@ -614,7 +663,7 @@ public partial class RequestManage : IDisposable
     /// 접수한 줄은 목록에 남긴다 — 걷으면 접수와 삭제가 똑같이 사라져 무슨 일이 있었는지 알 수 없다.</summary>
     private async Task<bool> AcceptSwipedAsync(ImprovementRequest r)
     {
-        if (!CanAccept || r.Status is not "Pending")
+        if (!CanAccept || !CanAcceptRow(r) || r.Status is not "Pending")
         {
             return false;
         }

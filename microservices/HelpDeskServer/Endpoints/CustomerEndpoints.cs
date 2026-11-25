@@ -29,7 +29,7 @@ public static class CustomerEndpoints {
     // 고객 목록. 볼 수 있는 범위는 신원이 정한다.
     //
     // login_type 이 "customer" 일 때만 회사로 좁힌다. 판정하지 못했을 때는 좁히는 방향이어야 한다(연결 없는 계정은 login_type 이 없어 전부 받아 간다).
-    group.MapGet("/", (AppDbContext db, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapGet("/", (AppDbContext db, HttpContext http, IPortalCompanyDirectory companies) => ApiResponseBuilder.CreateAsync(async () => {
       var me = http.GetHelpdeskPrincipal();
 
       var query = db.Customers.AsQueryable();
@@ -38,8 +38,10 @@ public static class CustomerEndpoints {
         // 담당자는 전체를 본다. 연결이 없어도 포털 관리자 역할이면 여기에 해당한다.
       }
       else if (me.IsCustomer && me.HasCompany) {
-        // 고객은 자기 회사만 본다. 회사는 포털 아이디다.
-        query = query.Where(c => c.CompanyId == me.CompanyId);
+        // 고객은 자기 회사만 본다. 회사는 포털 아이디다. 헬프데스크 관리자는 맡은 회사 사람까지 본다(요청 처리의 요청자 고르개).
+        var handled = await RequestCompanyPolicy.HandledCompanyIdsAsync(me, companies, http.RequestAborted);
+        var scope = handled.Append(me.CompanyId!).Distinct().ToList();
+        query = query.Where(c => c.CompanyId != null && scope.Contains(c.CompanyId));
       }
       else {
         // 담당자도 아니고 회사를 알 수 있는 고객도 아니다 — 아무것도 주지 않는다.

@@ -30,6 +30,24 @@ public static class RequestCompanyPolicy {
     return false;
   }
 
+  /// <summary>
+  /// 이 사람이 그 회사의 요청을 처리(조회·수정·접수·완료)할 수 있는가 — 관리자 역할이 아니어도 헬프데스크 관리자는 맡은 회사의 글을 다룬다.
+  /// 관리자(IsAdmin)는 따로 이미 통과하므로 여기서는 맡은 회사만 본다.
+  /// </summary>
+  public static async Task<bool> CanHandleAsync(
+      HelpdeskPrincipal me, string? companyId, IPortalCompanyDirectory companies, CancellationToken ct = default) {
+    if (string.IsNullOrWhiteSpace(companyId)) return false;
+    var managed = await HandledCompanyIdsAsync(me, companies, ct);
+    return managed.Contains(companyId, StringComparer.OrdinalIgnoreCase);
+  }
+
+  /// <summary>헬프데스크 관리자가 맡은 회사들. 관리자 역할이 아니거나 포털 신원이 없으면 빈 목록이다.</summary>
+  public static async Task<IReadOnlyList<string>> HandledCompanyIdsAsync(
+      HelpdeskPrincipal me, IPortalCompanyDirectory companies, CancellationToken ct = default) {
+    if (!HasRole(me, ManagerRole) || string.IsNullOrWhiteSpace(me.JsiniUserId)) return [];
+    return await companies.GetManagedCompanyIdsAsync(me.JsiniUserId, ct);
+  }
+
   private static bool HasRole(HelpdeskPrincipal me, string role) =>
       me.JsiniRoles.Any(r => string.Equals(r, role, StringComparison.OrdinalIgnoreCase));
 }

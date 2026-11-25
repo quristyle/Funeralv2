@@ -10,7 +10,8 @@ public interface IAssigneeProvisioner {
   /// <param name="me">지금 요청을 보낸 사람</param>
   /// <param name="auditUser">만들어지는 줄에 남길 작성자</param>
   /// <param name="ct">취소 토큰</param>
-  Task<int?> ResolveAsync(HelpdeskPrincipal me, string auditUser, CancellationToken ct = default);
+  /// <param name="canHandle">관리자 역할은 아니지만 이 글의 회사를 맡은 헬프데스크 관리자인가. 참이면 관리자처럼 접수자 줄을 정한다.</param>
+  Task<int?> ResolveAsync(HelpdeskPrincipal me, string auditUser, CancellationToken ct = default, bool canHandle = false);
 }
 
 /// <inheritdoc />
@@ -26,7 +27,7 @@ public class AssigneeProvisioner : IAssigneeProvisioner {
 
   /// <inheritdoc />
   public async Task<int?> ResolveAsync(
-      HelpdeskPrincipal me, string auditUser, CancellationToken ct = default) {
+      HelpdeskPrincipal me, string auditUser, CancellationToken ct = default, bool canHandle = false) {
 
     // 1. 담당자로 이어 둔 계정은 그 줄이 곧 자기 자신이다.
     if (me.IsLinkedAdmin && me.HelpdeskUserId is { } linked
@@ -36,7 +37,7 @@ public class AssigneeProvisioner : IAssigneeProvisioner {
 
     // 2. 담당자 권한이 없는 사람은 접수자가 될 수 없다. 여기서 줄을 만들면
     //    **고객이 담당자 표에 들어간다** — 배정 알림도 그 사람에게 간다.
-    if (!me.IsAdmin) return null;
+    if (!me.IsAdmin && !canHandle) return null;
 
     var loginId = me.JsiniUserId;
 

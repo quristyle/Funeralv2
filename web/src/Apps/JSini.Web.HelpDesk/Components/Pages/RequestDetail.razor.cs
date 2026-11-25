@@ -76,7 +76,10 @@ public partial class RequestDetail : IDisposable
     private bool CanDeleteRequest => Context.IsSystemAdmin && !IsFinished;
 
     /// <summary>접수·완료를 누를 수 있는가. 연결이 아니라 담당자 여부를 본다 — 담당자 줄은 서버가 접수할 때 만든다.</summary>
-    private bool CanHandle => Context.IsAdmin && Permissions.Can(MenuPath, MenuAction.Update);
+    private bool CanHandle => (Context.IsAdmin || _handlesCompany) && Permissions.Can(MenuPath, MenuAction.Update);
+
+    /// <summary>헬프데스크 관리자가 이 글의 회사를 맡았는가(사용처 담당자 · HELP_DESK). 관리자 역할이 아니어도 접수·완료를 연다 — 서버 RequestCompanyPolicy.CanHandleAsync 와 같다.</summary>
+    private bool _handlesCompany;
 
     /// <summary>보고 있는 사람이 글쓴이인가. <c>createdBy</c> 를 먼저, 옛 글은 고객 번호로 본다.</summary>
     private bool IsAuthor
@@ -263,6 +266,7 @@ public partial class RequestDetail : IDisposable
         await Task.WhenAll(request, comments);
 
         _request = request.Result;
+        _handlesCompany = !Context.IsAdmin && await Context.CanHandleCompanyAsync(Value("companyId"));
         _attachments = AttachmentsOf(_request);
         _images = _attachments.Where(RequestThumb.IsImage).ToList();
         _comments = comments.Result;

@@ -646,13 +646,16 @@ public static class RequestEndpoints {
     //접수, 반려, 완료 등을 반영한다.
     // 접수·반려·완료. 접수자는 누른 사람으로 정한다(IAssigneeProvisioner) — 화면의 번호는 담당자 계정일 때만 admin.id 라 그대로 넣으면 남이 박힌다.
     // 대기에서 완료로 바로 넘겨도 접수자·접수일·완료일이 한 번에 들어간다.
-    group.MapPut("/accept/{id}", (HttpContext http, AppDbContext db, int id, ImprovementRequest input, IAssigneeProvisioner assignees, IRequestStatusNotifier statusNotifier, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPut("/accept/{id}", (HttpContext http, AppDbContext db, int id, ImprovementRequest input, IAssigneeProvisioner assignees, IPortalCompanyDirectory companies, IRequestStatusNotifier statusNotifier, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration) => ApiResponseBuilder.CreateAsync(async () => {
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
 
       // 관리자가 아닌 사람은 자기(회사) 글을 「종료」하는 것만 된다. 접수·완료는 접수자를 박으므로 관리자 몫이다.
+      // 헬프데스크 관리자는 맡은 회사(사용처 담당자 · HELP_DESK)의 글이면 관리자처럼 다룬다.
       var me = http.GetHelpdeskPrincipal();
-      if (!me.IsAdmin) {
+      var handles = !me.IsAdmin
+          && await RequestCompanyPolicy.CanHandleAsync(me, req.CompanyId, companies, http.RequestAborted);
+      if (!me.IsAdmin && !handles) {
         if (input.Status != ImprovementStatus.UserCompleted) {
           throw new UnauthorizedAccessException("관리자 권한이 필요합니다.");
         }
@@ -674,7 +677,7 @@ public static class RequestEndpoints {
         var ct = http.RequestAborted;
         var assigneeId = input.AdminId is > 0 ? input.AdminId
             : req.AdminId
-              ?? await assignees.ResolveAsync(http.GetHelpdeskPrincipal(), http.AuditUser(), ct);
+              ?? await assignees.ResolveAsync(me, http.AuditUser(), ct, canHandle: handles);
 
         if (assigneeId is > 0) {
           req.AdminId = assigneeId;
@@ -751,7 +754,7 @@ public static class RequestEndpoints {
 
 
     // 수정
-    group.MapPut("/{id}", async (HttpRequest httpRequest, AppDbContext db, int id, IConfiguration configuration, ILoggerFactory loggerFactory) => {
+    group.MapPut("/{id}", async (HttpRequest httpRequest, AppDbContext db, int id, IPortalCompanyDirectory companies, IConfiguration configuration, ILoggerFactory loggerFactory) => {
       var form = await httpRequest.ReadFormAsync();
       // StringValues 를 그대로 두면 값이 없을 때 null 로 떨어진다. 여기서 빈 문자열로 고정한다.
       var title = form["title"].ToString();
@@ -771,7 +774,7 @@ public static class RequestEndpoints {
         if (req is null) return null;
 
         await httpRequest.HttpContext.GetHelpdeskPrincipal()
-            .RequireRequestAccessAsync(db, req, allowSameCompany: true, httpRequest.HttpContext.RequestAborted);
+            .RequireRequestAccessAsync(db, req, allowSameCompany: true, httpRequest.HttpContext.RequestAborted, companies);
 
         if (req.Status == ImprovementStatus.Completed || req.Status == ImprovementStatus.UserCompleted) {
           throw new InvalidOperationException("완료되거나 종료된 요청은 수정할 수 없습니다.");

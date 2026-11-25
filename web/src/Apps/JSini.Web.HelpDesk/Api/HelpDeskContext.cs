@@ -87,6 +87,50 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
         return CompanyId is { } mine ? [Option(mine)] : [];
     }
 
+    /// <summary>
+    /// 헬프데스크 관리자가 처리할 수 있는 회사들 — 「사용처 담당자」(HELP_DESK)로 맡은 회사다. 서버의 RequestCompanyPolicy.CanHandleAsync 와 같은 규칙이다.
+    /// 관리자(IsAdmin)는 이미 모든 글을 다루므로 여기에 담지 않는다. 관리자 역할이 아니면 빈 목록.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> LoadHandledCompanyIdsAsync()
+    {
+        await LoadIdentityAsync();
+        return IsHelpdeskManager ? await LoadManagedCompanyIdsAsync() : [];
+    }
+
+    /// <summary>이 회사의 요청을 접수·완료할 수 있는가 — 관리자이거나, 그 회사를 맡은 헬프데스크 관리자다.</summary>
+    public async Task<bool> CanHandleCompanyAsync(string? companyId)
+    {
+        await LoadIdentityAsync();
+        if (IsAdmin) return true;
+        if (string.IsNullOrWhiteSpace(companyId)) return false;
+
+        var handled = await LoadHandledCompanyIdsAsync();
+        return handled.Contains(companyId, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 요청 처리 화면에서 헬프데스크 관리자가 고를 회사 — 자기 회사와 맡은 회사(이름 순). 맡은 회사가 없으면 자기 회사 하나뿐이다.
+    /// 시스템관리자는 이 목록을 쓰지 않는다(CompanyOptions 전체).
+    /// </summary>
+    public async Task<IReadOnlyList<BizOption>> LoadManageCompanyOptionsAsync()
+    {
+        var handled = await LoadHandledCompanyIdsAsync();
+        var ids = handled.ToList();
+        if (CompanyId is { } mine) ids.Insert(0, mine);
+
+        if (ids.Count == 0) return [];
+
+        var all = await LoadAllCompaniesAsync();
+        string Label(string id) =>
+            all.FirstOrDefault(o => o.Value == id)?.Label
+            ?? CompanyOptions.FirstOrDefault(o => o.Value == id)?.Label
+            ?? id;
+
+        return [.. ids.Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(id => new BizOption(Label(id), id))
+            .OrderBy(o => o.Label, StringComparer.CurrentCulture)];
+    }
+
     /// <summary>현재 계정이 해석된 신원. 연결이 없으면 null.</summary>
     public HelpdeskIdentity? Identity { get; private set; }
 

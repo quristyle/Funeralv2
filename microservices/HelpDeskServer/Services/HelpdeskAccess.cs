@@ -23,9 +23,11 @@ public static class HelpdeskAccess {
            string.Equals(me.LinkedUserType, "customer", StringComparison.OrdinalIgnoreCase);
   }
 
-  /// <summary>관리자 · 글 주인이 아니면 막는다. <paramref name="allowSameCompany"/> 면 같은 회사 고객도 통과시킨다.</summary>
+  /// <summary>관리자 · 글 주인이 아니면 막는다. <paramref name="allowSameCompany"/> 면 같은 회사 고객과,
+  /// <paramref name="companies"/> 를 주었을 때 그 회사를 맡은 헬프데스크 관리자(RequestCompanyPolicy.CanHandleAsync)도 통과시킨다.</summary>
   public static async Task RequireRequestAccessAsync(
-      this HelpdeskPrincipal me, AppDbContext db, ImprovementRequest req, bool allowSameCompany, CancellationToken ct = default) {
+      this HelpdeskPrincipal me, AppDbContext db, ImprovementRequest req, bool allowSameCompany, CancellationToken ct = default,
+      IPortalCompanyDirectory? companies = null) {
     if (me.IsAdmin || me.IsRequestOwner(req)) return;
 
     // 같은 회사는 글이 쓰일 때의 회사로 가른다 — 쓴 사람이 다른 회사로 옮겨 가도 글은 옛 회사 사람들 것으로 남는다.
@@ -34,7 +36,10 @@ public static class HelpdeskAccess {
       return;
     }
 
-    await Task.CompletedTask;
+    if (allowSameCompany && companies is not null
+        && await RequestCompanyPolicy.CanHandleAsync(me, req.CompanyId, companies, ct)) {
+      return;
+    }
 
     throw new UnauthorizedAccessException("이 요청을 처리할 권한이 없습니다.");
   }

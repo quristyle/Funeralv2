@@ -3,7 +3,8 @@
 
 @*
     [요청 처리] — DB 메뉴 `/helpdesk/request/manage`. `requests/srch` 는 POST 다(GET 은 requests/{id:int} 에 걸려 500). 조건·목록·고른 줄은 ScreenState 로 맡겼다가 되찾는다.
-    시스템관리자가 아니면 회사가 제 회사로 못 박히고(이름만 적는다), 요청자는 같은 회사 사람 중에서 고른다. 고객은 나로 골라진 채 열린다.
+    시스템관리자는 모든 회사, 헬프데스크 관리자는 제 회사와 「사용처 담당자」(HELP_DESK)로 맡은 회사 중에서 고른다.
+    그 밖에는 회사가 제 회사로 못 박히고(이름만 적는다), 요청자는 같은 회사 사람 중에서 고른다. 고객은 나로 골라진 채 열린다.
     못 박는 자리는 ReloadAsync 의 회사 조건이다 — 서버는 목록을 권한으로 거르지 않는다. 요청자 고르개는 서버(/customers)가 이미 제 회사 사람만 준다.
 *@
 
@@ -17,12 +18,12 @@
 @* 조건이 여럿이라 한 줄에 다 안 든다. CommSch 가 넘치면 아래로 흘려 담고, 「조회」는 늘 오른쪽 끝에 남는다. *@
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
-        @if (Context.IsSystemAdmin)
+        @if (CanPickCompany)
         {
-            @* 회사는 여럿 고른다. 아무것도 안 고르면 「전체」라 「전체」 항목은 두지 않는다(상태 칸과 같은 규칙). *@
+            @* 회사는 여럿 고른다. 아무것도 안 고르면 「전체」(헬프데스크 관리자는 고를 수 있는 회사 전부)라 「전체」 항목은 두지 않는다(상태 칸과 같은 규칙). *@
             <CommSchItem Label="회사">
                 <DxTagBox TData="BizOption" TValue="string"
-                          Data="@Context.CompanyOptions"
+                          Data="@CompanyChoices"
                           TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
                           Values="@_companyIds" ValuesChanged="@OnCompaniesChangedAsync"
                           Style="width: 240px"
@@ -37,7 +38,7 @@
             </CommSchItem>
         }
 
-        @* 고르개 목록은 SearchCompanyIds 로 좁힌다 — 시스템관리자가 아니면 제 회사 사람뿐이다. *@
+        @* 고르개 목록은 SearchCompanyIds 로 좁힌다 — 시스템관리자가 아니면 고를 수 있는 회사 사람뿐이다. *@
         <CommSchItem Label="요청자">
             <DxComboBox Data="@RequesterFilterOptions" @bind-Value="_requesterId" @bind-Value:after="ReloadAsync"
                         TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
@@ -114,7 +115,7 @@
     @if (_isPhone)
     {
         <RequestCards Rows="@Shown" RowClick="@OnRowClick"
-                      CanAccept="@CanAccept" CanDelete="@CanDelete"
+                      CanAccept="@CanAccept" CanAcceptRow="@CanAcceptRow" CanDelete="@CanDelete"
                       Accept="@AcceptSwipedAsync" Delete="@DeleteSwipedAsync" />
     }
     else
