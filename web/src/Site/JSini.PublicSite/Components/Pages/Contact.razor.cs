@@ -20,6 +20,10 @@ public partial class Contact
     private Section? _consent;
     private bool _done;
     private string? _error;
+    private string? _captchaImage;
+
+    /// <summary>「새 그림」 단추의 name. 이것으로 온 POST 는 접수하지 않고 그림만 바꾼다.</summary>
+    private const string RefreshField = "captcha-refresh";
 
     /// <summary>동의 문구. DB(site.sections 의 contact.consent)가 정본이다. 블록이 없으면 코드의 문장을 쓴다. 동의 문구가 아예 안 보이는 것이 더 나쁘다.</summary>
     private string ConsentBody =>
@@ -32,11 +36,21 @@ public partial class Contact
         var rows = await Api.SectionsAsync(L, "contact.");
         _consent = rows.FirstOrDefault(r => r.SectionKey == "contact.consent");
 
-        // POST 로 다시 들어온 요청에서는 세지 않는다. 한 번 본 화면이다.
+        // POST 로 다시 들어온 요청에서는 세지 않는다. 한 번 본 화면이다. 캡차는 POST 처리가 끝난 뒤 새로 받는다.
         if (!HttpMethods.IsPost(HttpContext?.Request.Method ?? "GET"))
         {
             Api.RecordVisit($"/{L}/contact", L);
+            await NewCaptchaAsync();
         }
+    }
+
+    /// <summary>새 문제를 받고 친 답을 비운다. 한 토큰은 서버에서 한 번만 검사되므로 보낸 뒤에는 늘 새로 받는다.</summary>
+    private async Task NewCaptchaAsync()
+    {
+        var challenge = await Api.CaptchaAsync();
+        Input!.CaptchaToken = challenge?.Token;
+        Input.CaptchaAnswer = null;
+        _captchaImage = challenge?.Image;
     }
 
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
@@ -44,6 +58,23 @@ public partial class Contact
     private async Task SubmitAsync()
     {
         _error = null;
+
+        if (HttpContext?.Request.HasFormContentType == true && HttpContext.Request.Form.ContainsKey(RefreshField))
+        {
+            await NewCaptchaAsync();
+            return;
+        }
+
+        await SubmitCoreAsync();
+
+        if (!_done)
+        {
+            await NewCaptchaAsync();
+        }
+    }
+
+    private async Task SubmitCoreAsync()
+    {
 
         var name = Input!.Name?.Trim() ?? string.Empty;
         var email = Input!.Email?.Trim() ?? string.Empty;
@@ -53,6 +84,12 @@ public partial class Contact
         if (name.Length == 0 || email.Length == 0 || message.Length == 0 || !Input!.Consent)
         {
             _error = T.Contact.Form.Required;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Input!.CaptchaAnswer))
+        {
+            _error = T.Contact.Form.CaptchaHint;
             return;
         }
 
@@ -70,6 +107,8 @@ public partial class Contact
             Locale = L,
             Consent = Input!.Consent,
             Website = Input!.Website,
+            CaptchaToken = Input!.CaptchaToken,
+            CaptchaAnswer = Input!.CaptchaAnswer.Trim(),
         });
 
         if (result.Ok)
@@ -78,7 +117,9 @@ public partial class Contact
             return;
         }
 
-        _error = result.RateLimited ? T.Contact.Form.RateLimited : T.Contact.Form.Failed;
+        _error = result.RateLimited ? T.Contact.Form.RateLimited
+            : result.CaptchaFailed ? T.Contact.Form.CaptchaWrong
+            : T.Contact.Form.Failed;
     }
 
     private static string? Blank(string? value) =>
@@ -97,5 +138,9 @@ public partial class Contact
 
         /// <summary>허니팟. 사람에게는 안 보이는 칸이라 비어 있어야 정상이다. 채워져 있으면 서버가 조용히 버리고 성공 응답을 준다.</summary>
         public string? Website { get; set; }
+
+        /// <summary>캡차 토큰(숨은 칸)과 방문자가 친 글자.</summary>
+        public string? CaptchaToken { get; set; }
+        public string? CaptchaAnswer { get; set; }
     }
 }

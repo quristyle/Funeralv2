@@ -34,6 +34,8 @@
                 위조방지 토큰을 여기에 따로 적지 않는다. FormName 이 붙은 EditForm 이 토큰 칸을 스스로 넣으므로 AntiforgeryToken 을 또 쓰면 칸이 둘이 되어 보내기가 늘 400 이 된다.
             *@
         <EditForm Model="@Input" FormName="contact" OnValidSubmit="@SubmitAsync" method="post" class="form">
+            @* 칸에서 엔터를 치면 브라우저는 폼의 첫 submit 단추를 누른다. 그것이 아래 「새 그림」이 되지 않게 보내기 단추를 하나 먼저 둔다. *@
+            <button type="submit" class="form__default-submit" tabindex="-1" aria-hidden="true"></button>
             <div class="form__grid">
                 <label class="field">
                     <span class="field__label">@T.Contact.Form.Name</span>
@@ -91,6 +93,31 @@
                     <InputCheckbox @bind-Value="Input!.Consent" required />
                     <span>@T.Contact.Form.Consent</span>
                 </label>
+            </div>
+
+            @*
+                캡차. 그림은 SiteServer 가 만든 data URI 라 바깥을 부르지 않는다. 「새 그림」은 formnovalidate 로 빈 칸이 있어도 보내지고, 서버는 그 POST 를 접수하지 않고 그림만 바꾼다.
+            *@
+            <div class="field captcha">
+                <span class="field__label">@T.Contact.Form.Captcha</span>
+                <div class="captcha__row">
+                    @if (_captchaImage is not null)
+                    {
+                        <img class="captcha__image" src="@_captchaImage" width="180" height="60" alt="@T.Contact.Form.CaptchaImageAlt" />
+                    }
+                    else
+                    {
+                        <p class="captcha__missing">@T.Contact.Form.CaptchaUnavailable</p>
+                    }
+                    <button type="submit" name="@RefreshField" value="1" formnovalidate class="captcha__refresh link-quiet">
+                        @T.Contact.Form.CaptchaRefresh
+                    </button>
+                </div>
+                <InputText type="hidden" @bind-Value="Input!.CaptchaToken" />
+                <InputText @bind-Value="Input!.CaptchaAnswer" class="captcha__answer" maxlength="10" required
+                           autocomplete="off" autocapitalize="characters" spellcheck="false"
+                           aria-label="@T.Contact.Form.Captcha" aria-describedby="captcha-hint" />
+                <span id="captcha-hint" class="captcha__hint">@T.Contact.Form.CaptchaHint</span>
             </div>
 
             @if (_error is not null)

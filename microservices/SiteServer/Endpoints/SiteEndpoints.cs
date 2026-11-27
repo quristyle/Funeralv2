@@ -68,12 +68,26 @@ public static class SiteEndpoints
         })
         .WithName("DownloadSiteFile");
 
-        // 문의 접수. 익명 쓰기라 방어가 여러 겹이다 — 게이트웨이 IP 레이트리밋 · 본문 크기 상한 · 허니팟 · 폼 스팸 판별 · 동의 확인.
+        // 문의 폼의 캡차 문제. 정답은 서버에 남지 않고 토큰의 서명 안에만 있다. 가려 두면 같은 그림이 되살아나므로 캐시를 끈다.
+        pub.MapGet("/captcha", (HttpContext http, [FromServices] ICaptchaService captcha) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            var c = captcha.Issue();
+            return Results.Ok(ApiResponse<CaptchaChallengeDto>.Ok(new CaptchaChallengeDto
+            {
+                Token = c.Token,
+                Image = "data:image/png;base64," + Convert.ToBase64String(c.Png),
+            }));
+        })
+        .WithName("GetCaptcha");
+
+        // 문의 접수. 익명 쓰기라 방어가 여러 겹이다 — 게이트웨이 IP 레이트리밋 · 본문 크기 상한 · 캡차 · 허니팟 · 폼 스팸 판별 · 동의 확인.
         // 봇으로 본 것은 사유를 알려 주지 않고 성공과 같은 응답을 준다. 길이·메일 형식처럼 사람이 고칠 잘못만 400 으로 말한다.
         pub.MapPost("/inquiries", async (
             [FromBody] InquiryRequestDto request,
             HttpContext http,
             [FromServices] ISiteService svc,
+            [FromServices] ICaptchaService captcha,
             [FromServices] IInquiryMailNotifier mailNotifier,
             [FromServices] IInquiryPushNotifier pushNotifier) =>
         {
@@ -81,6 +95,13 @@ public static class SiteEndpoints
             {
                 return Results.BadRequest(
                     ApiResponse<bool>.Fail("개인정보 수집·이용에 동의해야 접수됩니다.", "400"));
+            }
+
+            // 캡차를 못 넘은 것은 봇이든 사람이든 사유를 말한다 — 사람은 새 그림으로 다시 친다.
+            if (captcha.Verify(request.CaptchaToken, request.CaptchaAnswer) != CaptchaVerdict.Passed)
+            {
+                return Results.BadRequest(
+                    ApiResponse<bool>.Fail("보안 문자가 맞지 않습니다. 새 그림의 글자를 입력해 주세요.", "CAPTCHA"));
             }
 
             // 게이트웨이가 속도 제한에 쓴 방문자 주소(X-Client-Ip)가 정본이다. X-Forwarded-For 는 YARP 가

@@ -74,6 +74,17 @@ public class InquiryRequestDto
     /// 화면에서는 `aria-hidden` 과 화면 밖 배치로 감춘다 — `display:none` 은 봇도 알아본다.
     /// </summary>
     public string? Website { get; set; }
+
+    /// <summary>캡차 토큰(<c>GET /captcha</c> 가 준 것)과 사람이 읽어 친 글자. 둘 다 없으면 접수하지 않는다.</summary>
+    public string? CaptchaToken { get; set; }
+    public string? CaptchaAnswer { get; set; }
+}
+
+/// <summary>문의 폼의 캡차 문제. 그림은 data URI 라 소개 사이트가 마크업에 그대로 박는다.</summary>
+public class CaptchaChallengeDto
+{
+    public string Token { get; set; } = string.Empty;
+    public string Image { get; set; } = string.Empty;
 }
 
 /// <summary>관리(포털)용 문의 목록 항목. 본문과 내부 메모까지 함께 준다</summary>

@@ -72,6 +72,13 @@ public sealed class SiteApi
         GetListAsync<DownloadItem>(
             $"site/downloads?locale={locale}{(category is null ? string.Empty : $"&category={Uri.EscapeDataString(category)}")}");
 
+    /// <summary>문의 폼의 캡차 문제를 받는다. 못 받으면 null — 화면은 안내를 띄우고 「새 그림」으로 다시 받게 한다.</summary>
+    public async Task<CaptchaChallenge?> CaptchaAsync()
+    {
+        var rows = await GetListAsync<CaptchaChallenge>("site/captcha");
+        return rows.FirstOrDefault(r => r.Token.Length > 0 && r.Image.StartsWith("data:image/png;base64,", StringComparison.Ordinal));
+    }
+
     /// <summary>게이트웨이 상대 경로(/api/...)를 브라우저가 열 수 있는 절대 주소로 바꾼다. 이 앱(:5556)은 게이트웨이(:5265)와 오리진이 달라 마크업에 절대 주소를 박는다.</summary>
     public string? PublicUrl(string? gatewayPath) =>
         string.IsNullOrEmpty(gatewayPath) ? gatewayPath : _publicBase + gatewayPath;
@@ -98,7 +105,10 @@ public sealed class SiteApi
                 // 본문이 JSON 이 아니어도 상태 코드만으로 판단한다.
             }
 
-            return new InquiryResult(Ok: res.IsSuccessStatusCode && json?.Success != false, Message: json?.Message);
+            return new InquiryResult(
+                Ok: res.IsSuccessStatusCode && json?.Success != false,
+                CaptchaFailed: json?.Code == "CAPTCHA",
+                Message: json?.Message);
         }
         catch (Exception ex)
         {
@@ -110,6 +120,7 @@ public sealed class SiteApi
     private sealed class ServerReply
     {
         public bool? Success { get; set; }
+        public string? Code { get; set; }
         public string? Message { get; set; }
     }
 

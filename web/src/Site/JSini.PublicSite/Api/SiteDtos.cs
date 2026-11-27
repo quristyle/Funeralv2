@@ -59,7 +59,18 @@ public sealed class InquiryRequest
 
     /// <summary>허니팟. 사람에게는 안 보이는 칸이라 비어 있어야 정상이다. 채워져 있으면 서버가 조용히 버리고 성공 응답을 준다.</summary>
     public string? Website { get; set; }
+
+    /// <summary>캡차 토큰과 방문자가 읽어 친 글자. 서버가 맞춰 보고, 한 토큰은 한 번만 쓴다.</summary>
+    public string? CaptchaToken { get; set; }
+    public string? CaptchaAnswer { get; set; }
 }
 
 /// <summary>문의 접수 결과. 실패 이유는 화면 문구를 고를 만큼만 나눈다</summary>
-public sealed record InquiryResult(bool Ok, bool RateLimited = false, string? Message = null);
+public sealed record InquiryResult(bool Ok, bool RateLimited = false, bool CaptchaFailed = false, string? Message = null);
+
+/// <summary>캡차 문제. 그림은 data URI 라 마크업에 그대로 넣는다(이 사이트는 바깥을 부르지 않는다).</summary>
+public sealed class CaptchaChallenge
+{
+    public string Token { get; set; } = string.Empty;
+    public string Image { get; set; } = string.Empty;
+}

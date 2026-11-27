@@ -915,3 +915,52 @@ a {
 
 .legal__operator dt { color: var(--steel); }
 .legal__operator dd { margin: 0; }
+
+/* 문의 폼 캡차. 그림은 180×60 PNG 이다. */
+.captcha__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.captcha__image {
+  display: block;
+  border: 1px solid var(--mist);
+  image-rendering: auto;
+}
+
+.captcha__missing {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--graphite);
+}
+
+.captcha__refresh {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.field input.captcha__answer {
+  max-width: 16rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.captcha__hint {
+  font-size: 0.75rem;
+  color: var(--steel);
+}
+
+/* 엔터가 누르는 기본 단추. display:none 이면 기본 단추로 안 쳐 주는 브라우저가 있어 밖으로 민다. */
+.form__default-submit {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

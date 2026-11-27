@@ -39,6 +39,10 @@ builder.Services.AddDbContext<SiteDbContext>(options => options.UseNpgsql(connec
 // ============================================================
 builder.Services.AddScoped<ISiteService, SiteService>();
 
+// 문의 폼의 자체 캡차. 쓴 토큰을 기억하는 곳이 메모리라 인스턴스는 하나여야 한다(둘이면 같은 토큰을 두 번 쓸 수 있다).
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ICaptchaService, CaptchaService>();
+
 // 문의 접수 알림 메일 — NotificationServer(/emails/send)를 루프백으로 부른다.
 // 메일 실패가 접수 실패가 되면 안 되므로 Notifier 는 예외를 삼키고 로그만 남긴다.
 builder.Services.AddHttpClient("notification", client =>

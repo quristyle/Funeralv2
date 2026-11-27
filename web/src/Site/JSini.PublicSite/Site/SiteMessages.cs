@@ -79,6 +79,12 @@ public static class SiteMessages
                     Failed = "접수하지 못했습니다. 잠시 후 다시 시도해 주십시오.",
                     RateLimited = "요청이 너무 잦습니다. 잠시 후 다시 시도해 주십시오.",
                     Required = "필수 항목을 채워 주십시오.",
+                    Captcha = "보안 문자",
+                    CaptchaHint = "그림 속 글자 다섯 개를 입력해 주십시오. 대소문자는 가리지 않습니다.",
+                    CaptchaRefresh = "새 그림",
+                    CaptchaImageAlt = "보안 문자 그림",
+                    CaptchaWrong = "보안 문자가 맞지 않습니다. 새 그림의 글자를 입력해 주십시오.",
+                    CaptchaUnavailable = "보안 문자를 불러오지 못했습니다. 「새 그림」을 눌러 주십시오.",
                 },
             },
             Footer = new FooterMessages
@@ -146,6 +152,12 @@ public static class SiteMessages
                     Failed = "We could not accept it. Please try again in a moment.",
                     RateLimited = "Too many requests. Please try again in a moment.",
                     Required = "Please fill in the required fields.",
+                    Captcha = "Security check",
+                    CaptchaHint = "Type the five characters in the image. Case does not matter.",
+                    CaptchaRefresh = "New image",
+                    CaptchaImageAlt = "Security check image",
+                    CaptchaWrong = "The characters did not match. Please type the ones in the new image.",
+                    CaptchaUnavailable = "We could not load the security check. Please press \"New image\".",
                 },
             },
             Footer = new FooterMessages
@@ -247,6 +259,12 @@ public sealed class ContactFormMessages
     public required string Failed { get; init; }
     public required string RateLimited { get; init; }
     public required string Required { get; init; }
+    public required string Captcha { get; init; }
+    public required string CaptchaHint { get; init; }
+    public required string CaptchaRefresh { get; init; }
+    public required string CaptchaImageAlt { get; init; }
+    public required string CaptchaWrong { get; init; }
+    public required string CaptchaUnavailable { get; init; }
 }
 
 /// <summary>바닥글.</summary>
