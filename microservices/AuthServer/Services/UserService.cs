@@ -1019,7 +1019,7 @@ public class UserService : IUserService
 
         if (account == null) return ChangePasswordResult.AccountNotFound;
 
-        // 이전 비밀번호 검증 — 평문으로 남은 계정도 통과한다(PasswordHasher 참고).
+        // 이전 비밀번호 검증
         if (!PasswordHasher.Verify(account.Password, dto.OldPassword))
         {
             return ChangePasswordResult.OldPasswordMismatch;
@@ -1055,7 +1055,6 @@ public class UserService : IUserService
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
 
-        // 평문으로 남은 저장값도 통과한다 — PasswordHasher 참고.
         return account is not null && PasswordHasher.Verify(account.Password, password);
     }
 

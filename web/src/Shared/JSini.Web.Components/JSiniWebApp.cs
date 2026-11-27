@@ -355,6 +355,22 @@ public static class JSiniWebApp
         // 정적 자원은 이미 Content-Encoding 이 붙어 있어 이 미들웨어가 건드리지 않는다.
         app.UseResponseCompression();
 
+        // 보안 헤더 셋. 프레임워크는 위조방지 토큰을 그리는 화면에만 X-Frame-Options 를 붙인다 — 나머지 화면·중계 파일이
+        // 남의 사이트 iframe 에 실리지 않게, 비밀번호 재설정 링크(?token=)가 바깥 Referer 에 실리지 않게 여기서 건다.
+        // 이미 정한 응답(파일 중계의 nosniff 등)은 덮지 않는다.
+        app.Use((context, next) =>
+        {
+            context.Response.OnStarting(() =>
+            {
+                var headers = context.Response.Headers;
+                headers.TryAdd("X-Content-Type-Options", "nosniff");
+                headers.TryAdd("X-Frame-Options", "SAMEORIGIN");
+                headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+                return Task.CompletedTask;
+            });
+            return next(context);
+        });
+
         app.UseRouting();
 
         app.MapStaticAssets().AllowAnonymous();

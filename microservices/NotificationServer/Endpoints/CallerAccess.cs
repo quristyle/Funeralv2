@@ -54,6 +54,7 @@ public static class CallerAccess
     // 화면 열쇠. 화면 [RouteKey] 와 글자가 같아야 하고, 경로는 열쇠가 안 채워진 DB 대비책이다.
     public static readonly (string, string[]) PushSendScreen = ("admin.push.send", ["/admin/push/send"]);
     public static readonly (string, string[]) MailSendScreen = ("admin.mail.send", ["/admin/mail/send"]);
+    public static readonly (string, string[]) ScheduleMailScreen = ("projmng.proj.scheduler", ["/projmng/proj/scheduler"]);
     public static readonly (string, string[]) PushLogsScreen = ("admin.push.logs", ["/system/push/logs", "/admin/push/logs"]);
     public static readonly (string, string[]) PushDashboardScreen = ("admin.push.dashboard", ["/system/push/dashboard", "/admin/push/dashboard"]);
     public static readonly (string, string[]) AccountScreen = ("admin.system.account", ["/admin/system/account"]);

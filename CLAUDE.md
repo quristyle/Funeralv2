@@ -202,6 +202,9 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 - [docs/utc-time.md](docs/utc-time.md) — 시각을 UTC 로 다루는 규칙과 한국 시각이 남은 자리
 - [docs/security-hardening.md](docs/security-hardening.md) — 서비스별로 **스스로 막아야 하는
   자리**(게이트웨이가 익명으로 넘기는 `/api/auth/**` 등)와 문지기 · 아직 남은 구멍
+- [docs/security-audit-2026-11-27.md](docs/security-audit-2026-11-27.md) — 전수 점검: **운영 DB 가
+  공인 주소로 열려 있고 슈퍼유저 비밀번호가 계정 이름과 같다**(아직 안 고쳤다 — 고치는 순서) ·
+  이번에 막은 아홉 · 남은 것의 개선 방향
 - [docs/geolocation-background.md](docs/geolocation-background.md) — 포털을 닫은 뒤에도
   위치를 모을 수 있나(서비스워커에 `geolocation` 은 **없다** — 실측과 그래도 할 수 있는 일)
 - [docs/ai-voice-chat.md](docs/ai-voice-chat.md) — AI쳇을 말로 쓰는 길: 받아쓰기와

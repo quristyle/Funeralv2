@@ -23,20 +23,14 @@ public static class PasswordHasher
         return $"{Prefix}{Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
-    /// <summary>저장된 값과 입력 비밀번호가 맞는지 본다. 해시 형식이 아니면 평문으로 보고 비교한다(기존 계정 호환).</summary>
+    /// <summary>저장된 값과 입력 비밀번호가 맞는지 본다. 해시 형식이 아니면 언제나 틀린 것으로 본다 — 평문 저장값을 받아 주면 DB 에 줄 하나를 쓸 수 있는 사람이 아무 계정으로나 들어온다.</summary>
     public static bool Verify(string? stored, string? password)
     {
-        if (string.IsNullOrEmpty(stored) || password is null)
+        if (string.IsNullOrEmpty(stored) || password is null || !IsHashed(stored))
         {
+            // 계정이 없을 때와 같은 시간을 쓴다 — 응답 시간으로 계정 존재가 갈리지 않게.
+            BurnTime(password);
             return false;
-        }
-
-        if (!IsHashed(stored))
-        {
-            // 아직 해시로 바뀌지 않은 계정. 길이가 달라도 같은 시간이 걸리도록 비교한다.
-            return CryptographicOperations.FixedTimeEquals(
-                System.Text.Encoding.UTF8.GetBytes(stored),
-                System.Text.Encoding.UTF8.GetBytes(password));
         }
 
         // pbkdf2$sha256$반복$salt$hash
@@ -63,14 +57,22 @@ public static class PasswordHasher
         }
     }
 
+    private static readonly byte[] DummySalt = RandomNumberGenerator.GetBytes(SaltSize);
+
+    /// <summary>
+    /// 맞춰 볼 저장값이 없을 때(계정이 없음 · 해시가 아님) 해시 한 번만큼 시간을 쓴다.
+    /// 이것이 없으면 없는 아이디는 수 ms, 있는 아이디는 PBKDF2 만큼(약 0.3초) 걸려 아이디 목록을 응답 시간으로 캘 수 있다.
+    /// </summary>
+    public static void BurnTime(string? password) =>
+        Rfc2898DeriveBytes.Pbkdf2(password ?? string.Empty, DummySalt, Iterations, HashAlgorithmName.SHA256, HashSize);
+
     /// <summary>이미 해시 형식인지</summary>
     public static bool IsHashed(string stored) => stored.StartsWith(Prefix, StringComparison.Ordinal);
 
-    /// <summary>다시 해시해 저장해야 하는지. 평문이거나 반복 횟수가 지금 기준보다 낮으면 참이다 — 로그인에 성공한 직후에만 부른다.</summary>
+    /// <summary>다시 해시해 저장해야 하는지. 반복 횟수가 지금 기준보다 낮으면 참이다 — 로그인에 성공한 직후에만 부른다.</summary>
     public static bool NeedsUpgrade(string? stored)
     {
-        if (string.IsNullOrEmpty(stored)) return false;
-        if (!IsHashed(stored)) return true;
+        if (string.IsNullOrEmpty(stored) || !IsHashed(stored)) return false;
 
         var parts = stored.Split('$');
         return parts.Length != 5

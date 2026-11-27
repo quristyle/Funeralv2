@@ -35,9 +35,9 @@ public static class AuthEndpoints
                     "운영 배포 전에 Auth:SkipPasswordCheck 를 끄거나 해당 코드를 제거하세요.",
                     request.Username);
             }
-            else if (account == null || !PasswordHasher.Verify(account.Password, request.Password))
+            else if (!PasswordHasher.Verify(account?.Password, request.Password) || account is null)
             {
-                // 저장값이 아직 평문인 계정도 그대로 로그인된다 — PasswordHasher 참고.
+                // 계정이 없어도 Verify 가 해시 한 번만큼 시간을 쓴다 — 응답 시간으로 아이디가 갈리지 않게 순서를 이렇게 둔다.
                 logger.LogWarning("로그인 실패: {Username}", request.Username);
 
                 // 실패도 기록에 남긴다 — 응답 메시지는 그대로 둔다. 아이디가 있는지 없는지 알려 주지 않는다.
@@ -55,7 +55,7 @@ public static class AuthEndpoints
                 return rejected;
             }
 
-            // 평문이거나 옛 기준으로 해시된 값이면 성공한 이 기회에 다시 해시해 저장한다 — 저장이 실패해도 로그인은 막지 않는다. 검사를 생략했으면 입력값이 실제 비밀번호가 아니므로 건드리지 않는다.
+            // 옛 기준(반복 횟수)으로 해시된 값이면 성공한 이 기회에 다시 해시해 저장한다 — 저장이 실패해도 로그인은 막지 않는다. 검사를 생략했으면 입력값이 실제 비밀번호가 아니므로 건드리지 않는다.
             if (!skipPasswordCheck && PasswordHasher.NeedsUpgrade(account.Password))
             {
                 try
@@ -87,7 +87,7 @@ public static class AuthEndpoints
             // 1) 승인하는 시스템관리자의 신원부터 확인한다 — 아이디·비밀번호가 맞아야 한다.
             //    대리 로그인은 개발용 비밀번호 생략(Auth:SkipPasswordCheck)을 적용하지 않는다 — 언제나 실제 비밀번호를 확인한다.
             var admin = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == request.AdminUsername);
-            if (admin is null || !PasswordHasher.Verify(admin.Password, request.AdminPassword))
+            if (!PasswordHasher.Verify(admin?.Password, request.AdminPassword) || admin is null)
             {
                 logger.LogWarning("대리 로그인 거부 — 관리자 인증 실패: {Admin}", request.AdminUsername);
 
@@ -107,8 +107,9 @@ public static class AuthEndpoints
                 logger.LogWarning("대리 로그인 거부 — 시스템관리자가 아님: {Admin} (roles={Roles})",
                     admin.UserId, string.Join(',', adminRoles.RoleIds));
 
+                // 「비밀번호는 맞았다」를 알려 주지 않는다 — 다르게 답하면 이 익명 창이 아무 계정의 비밀번호를 맞춰 보는 길이 된다.
                 return Results.Json(
-                    ApiResponse<object>.Fail("시스템관리자만 대리 로그인할 수 있습니다.", "403"), statusCode: 403);
+                    ApiResponse<object>.Fail("관리자 아이디 또는 비밀번호가 올바르지 않습니다.", "401"), statusCode: 401);
             }
 
             // 3) 대상 사용자를 찾는다.

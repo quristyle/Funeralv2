@@ -182,8 +182,19 @@ public sealed class AccessTokenFactory(
             return null;
         }
 
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && !a.IsDeleted);
         if (account is null)
+        {
+            return null;
+        }
+
+        // 정지·거절·승인대기로 바뀐 계정은 갱신도 거절한다 — 로그인만 막으면 이미 들고 있던 갱신 쿠키로 30일씩 계속 이어 간다.
+        var status = await db.AccountProfileDetails
+            .Where(d => d.AccountId == account.Id && d.DetailType == SignupService.StatusDetail)
+            .Select(d => d.Content)
+            .FirstOrDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(status)
+            && !string.Equals(status, SignupService.StatusActive, StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }

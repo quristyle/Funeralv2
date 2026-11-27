@@ -22,7 +22,14 @@ public static class AssistantEndpoints
 
     public static void MapAssistantEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/assistant").WithTags("Assistant");
+        // 묻는 사람의 평소 권한을 넘어 포털 업무 자료를 가로질러 답하는 길이라, 메뉴(화면)만 믿지 않고
+        // 여기서도 역할을 본다. 정본은 메뉴 권한표지만 서비스가 그것을 읽을 길이 없어 설정으로 맞춘다
+        // (Assistant:AllowedRoles — 비우면 아래 기본값).
+        var group = app.MapGroup("/assistant").WithTags("Assistant")
+            .RequireRoles(sp => sp.GetRequiredService<IConfiguration>()
+                .GetSection("Assistant:AllowedRoles").Get<string[]>() is { Length: > 0 } configured
+                    ? configured
+                    : ["SYSTEM_ADMINISTRATOR", "ADMINISTRATOR", "PROJECT_MANAGEMENT_DEVELOPER"]);
 
         // ── 대화 (SSE) ──────────────────────────────────────
         //
@@ -216,6 +223,7 @@ public static class AssistantEndpoints
                 }),
             }));
         })
+        .RequireRoles(RoleGate.Admins)   // 모든 사람의 질문과 답 전문이 든 기록이다
         .WithName("AssistantAudit")
         .WithSummary("업무 비서 감사 기록 — 권한 밖 자료를 넘겨다본 흔적");
     }

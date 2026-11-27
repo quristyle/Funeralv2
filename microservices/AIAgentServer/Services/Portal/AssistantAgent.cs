@@ -190,7 +190,9 @@ public sealed class AssistantAgent(
         };
         foreach (var m in messages)
         {
-            jsonMessages.Add(new JsonObject { ["role"] = m.role, ["content"] = m.content });
+            // 브라우저가 보낸 역할은 user · assistant 만 받는다 — system · tool 을 받아 주면 위의 지시문을 덮어쓸 수 있다.
+            var role = string.Equals(m.role, "assistant", StringComparison.OrdinalIgnoreCase) ? "assistant" : "user";
+            jsonMessages.Add(new JsonObject { ["role"] = role, ["content"] = m.content });
         }
 
         var channel = Channel.CreateUnbounded<ChatStreamPart>();

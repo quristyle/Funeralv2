@@ -229,16 +229,5 @@ public partial class Login
         return Task.CompletedTask;
     }
 
-    /// <summary>돌아갈 주소를 이 사이트 안의 절대 경로로만 추린다(오픈 리다이렉트 방지). //evil.com 은 / 로 시작해도 밖으로 나간다.</summary>
-    private string SafeReturnUrl()
-    {
-        if (string.IsNullOrWhiteSpace(ReturnUrl)
-            || !ReturnUrl.StartsWith('/')
-            || ReturnUrl.StartsWith("//", StringComparison.Ordinal))
-        {
-            return "/";
-        }
-
-        return ReturnUrl;
-    }
+    private string SafeReturnUrl() => LocalReturnUrl.Sanitize(ReturnUrl);
 }

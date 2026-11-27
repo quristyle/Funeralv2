@@ -21,7 +21,9 @@ public static class GmailEndpoints
 {
     public static void MapGmailEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/gmail").WithTags("Gmail");
+        // 메일함 등록·적재·보관은 시스템관리 화면(메뉴 「Gmail 보관함」)의 일이다 — 로그인만 보면
+        // 누구나 계정 목록을 읽고 남의 계정 줄의 주인을 자기로 바꿔 그 메일을 받아 볼 수 있다.
+        var group = app.MapGroup("/gmail").WithTags("Gmail").RequireRoles(RoleGate.Admins);
 
         // ── 계정 ────────────────────────────────────────────
         group.MapGet("/accounts", async (
@@ -69,11 +71,22 @@ public static class GmailEndpoints
                 db.GmailAccounts.Add(row);
             }
 
+            else if (!string.IsNullOrWhiteSpace(row.OwnerLoginId)
+                     && !string.Equals(row.OwnerLoginId, who, StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrWhiteSpace(body.OwnerLoginId)
+                     && !string.Equals(row.OwnerLoginId, body.OwnerLoginId, StringComparison.OrdinalIgnoreCase))
+            {
+                // 이미 있는 남의 계정 줄의 주인을 바꾸면 그 메일함이 통째로 넘어간다(동기화·업무 비서가 주인으로 좁힌다).
+                return Results.Ok(ApiResponse<object>.Fail("다른 사람의 메일 계정은 주인을 바꿀 수 없습니다.", "C403"));
+            }
+
             row.Email = body.Email;
 
-            // 주인을 안 적으면 등록한 사람이 주인이다. 업무 비서가 남의 메일을 못 보게 좁히는 열쇠라
+            // 주인을 안 적으면 등록한 사람이 주인이다(이미 있는 줄은 그대로 둔다). 업무 비서가 남의 메일을 못 보게 좁히는 열쇠라
             // 비워 둔 채로 두지 않는다.
-            row.OwnerLoginId = string.IsNullOrWhiteSpace(body.OwnerLoginId) ? who : body.OwnerLoginId;
+            row.OwnerLoginId = !string.IsNullOrWhiteSpace(body.OwnerLoginId) ? body.OwnerLoginId
+                : !string.IsNullOrWhiteSpace(row.OwnerLoginId) ? row.OwnerLoginId
+                : who;
             row.Kind = body.Kind;
             row.Enabled = body.Enabled;
 

@@ -34,15 +34,13 @@ public class AuthService : IAuthService
         var account = await _db.Accounts
             .FirstOrDefaultAsync(a => a.UserId == request.Username);
 
-        // 2. 계정이 없거나 비밀번호가 틀린 경우 null 반환
-        //    저장값이 아직 평문인 계정도 그대로 로그인된다(PasswordHasher 참고).
-        if (account == null || !PasswordHasher.Verify(account.Password, request.Password))
+        // 2. 계정이 없거나 비밀번호가 틀린 경우 null 반환 — 계정이 없어도 Verify 가 해시만큼 시간을 쓰게 순서를 둔다.
+        if (!PasswordHasher.Verify(account?.Password, request.Password) || account is null)
         {
             return null;
         }
 
-        // 2-1. 평문이거나 옛 기준으로 해시된 값이면 이 기회에 다시 해시해 저장한다.
-        //      로그인에 성공한 지금이 평문 비밀번호를 아는 유일한 시점이다.
+        // 2-1. 옛 기준(반복 횟수)으로 해시된 값이면 이 기회에 다시 해시해 저장한다.
         //      저장에 실패해도 로그인 자체는 막지 않는다.
         if (PasswordHasher.NeedsUpgrade(account.Password))
         {

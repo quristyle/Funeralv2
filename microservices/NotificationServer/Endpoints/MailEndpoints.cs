@@ -29,9 +29,18 @@ public static class MailEndpoints
             [FromServices] IEmailSender sender,
             [FromServices] AppDbContext db,
             [FromServices] ILoggerFactory loggerFactory,
+            [FromServices] MenuViewAccess access,
+            HttpContext http,
             CancellationToken ct) =>
         {
             if (user is null) return Results.Unauthorized();
+
+            // 아무 주소로나 회사 발신자 이름의 HTML 메일을 보내는 길이라, 보내는 화면(메일 보내기 · 일정표 메일발송)의 권한이 있어야 한다.
+            if (!await CallerAccess.CanUseScreenAsync(user, http, access, ct,
+                    CallerAccess.MailSendScreen, CallerAccess.ScheduleMailScreen))
+            {
+                return CallerAccess.Forbidden();
+            }
 
             var logger = loggerFactory.CreateLogger("MailEndpoints");
 

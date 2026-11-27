@@ -248,13 +248,7 @@ public static class SocialLoginFlow
     /// <summary>「내 정보」로 되돌린다. 연결 모드로 왔을 때만 쓴다.</summary>
     private static string ProfileWith(string notice) => $"/admin/profile?social={notice}";
 
-    /// <summary>돌아갈 주소를 이 사이트 안의 절대 경로로만 추린다. //evil.com 은 / 로 시작해도 밖으로 나가므로 따로 막는다.</summary>
-    private static string SafeReturnUrl(string? returnUrl) =>
-        string.IsNullOrWhiteSpace(returnUrl)
-        || !returnUrl.StartsWith('/')
-        || returnUrl.StartsWith("//", StringComparison.Ordinal)
-            ? "/"
-            : returnUrl;
+    private static string SafeReturnUrl(string? returnUrl) => LocalReturnUrl.Sanitize(returnUrl);
 
     /// <summary>오가는 동안 쿠키에 담아 두는 것.</summary>
     /// <param name="State">공급자에게 실어 보낸 난수. 돌아온 값과 맞춰 본다.</param>
