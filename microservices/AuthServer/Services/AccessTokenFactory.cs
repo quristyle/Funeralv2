@@ -13,14 +13,21 @@ namespace AuthServer.Services;
 /// <param name="AccessExpiresAt">access token 만료 시각 (UTC)</param>
 /// <param name="RefreshToken">갱신용 토큰. 쿠키로만 나간다</param>
 /// <param name="RefreshExpiresAt">refresh token 만료 시각 (UTC)</param>
+/// <param name="SessionId">두 토큰이 가리키는 세션(<c>auth_sessions.id</c>)</param>
 public readonly record struct IssuedTokens(
     string AccessToken,
     DateTime AccessExpiresAt,
     string RefreshToken,
-    DateTime RefreshExpiresAt);
+    DateTime RefreshExpiresAt,
+    string SessionId);
 
-/// <summary>access token 과 refresh token 을 만든다. refresh token 은 DB 에 두지 않고 대상(audience)을 달리해 같은 열쇠로 서명한다.</summary>
-/// 즉시 무효화는 못 한다 — 로그아웃은 쿠키를 지우고, 비밀번호 변경 시각 이전의 refresh token 은 거절한다.
+/// <summary>갱신 토큰을 검증한 결과.</summary>
+public sealed record RefreshGrant(Account Account, string SessionId);
+
+/// <summary>access token 과 refresh token 을 만든다. 둘 다 세션(<see cref="AuthSession"/>) 하나를 가리킨다(<see cref="SessionClaim"/>).</summary>
+/// 세션을 닫으면(로그아웃·비밀번호 변경) 갱신이 거절되고, 이미 나간 접근 토큰은 짧은 수명 안에 죽는다.
+/// 갱신 토큰을 한 번 쓰고 버리는 회전은 하지 않는다 — 포털 셸이 로그인 때 받은 갱신 쿠키를 인증 쿠키 안에 계속 들고
+/// 쓰므로(BFF), 한 번 쓰면 버리게 하면 셸을 다시 띄울 때마다 「재사용」으로 읽혀 모두 로그아웃된다.
 public sealed class AccessTokenFactory(
     AppDbContext db,
     IConfiguration config,
@@ -43,8 +50,13 @@ public sealed class AccessTokenFactory(
 
     private static readonly JwtSecurityTokenHandler Handler = new();
 
-    /// <summary>access token 수명(일). 기본 7일이다.</summary>
-    private int AccessTokenDays => config.GetValue<int?>("Auth:AccessTokenDays") ?? 7;
+    /// <summary>세션을 가리키는 클레임 이름. <c>sid</c> 로 하지 않는다 — 토큰을 풀 때 기본 매핑이 긴 URI 로 바꿔 「없음」이 된다.</summary>
+    public const string SessionClaim = "SessionId";
+
+    /// <summary>access token 수명(분). 기본 15분 — 세션을 닫은 뒤 옛 토큰이 사는 최대 길이다.</summary>
+    /// 옛 열쇠 <c>Auth:AccessTokenDays</c>(7일)는 읽지 않는다. 운영 Local.json 에 남아 있어도 새 열쇠가 이긴다.
+    private int AccessTokenMinutes =>
+        Math.Clamp(config.GetValue<int?>("Auth:AccessTokenMinutes") ?? 15, 1, 24 * 60);
 
     /// <summary>refresh token 수명(일). 기본 30일. 0 이하면 갱신을 끈다.</summary>
     public int RefreshTokenDays => config.GetValue<int?>("Auth:RefreshTokenDays") ?? 30;
@@ -55,7 +67,12 @@ public sealed class AccessTokenFactory(
     /// <summary>이 계정으로 토큰 한 벌을 만든다.</summary>
     /// <param name="account">토큰의 주인</param>
     /// <param name="issuedAt">발급 기준 시각 (UTC)</param>
-    public async Task<IssuedTokens> IssueAsync(Account account, DateTime issuedAt)
+    /// <param name="sessionId">갱신이면 이어 갈 세션. 비우면 새 세션을 연다(로그인).</param>
+    /// <param name="ip">새 세션에 적을 IP</param>
+    /// <param name="userAgent">새 세션에 적을 브라우저</param>
+    public async Task<IssuedTokens> IssueAsync(
+        Account account, DateTime issuedAt, string? sessionId = null,
+        string? ip = null, string? userAgent = null)
     {
         // 토큰을 **발급하는** 자리다. 여기서 폴백 키를 쓰면 게이트웨이가 검증하지 못하는
         // 토큰이 나가거나, 더 나쁘게는 잘 알려진 키로 서명된 토큰이 나간다.
@@ -78,8 +95,38 @@ public sealed class AccessTokenFactory(
             .Select(p => p.Content)
             .FirstOrDefaultAsync();
 
+        var refreshExpires = issuedAt.AddDays(Math.Max(RefreshTokenDays, 1));
+
+        if (sessionId is null)
+        {
+            var session = new AuthSession
+            {
+                AccountId = account.Id,
+                ExpiresAt = refreshExpires,
+                Ip = ip,
+                UserAgent = userAgent is { Length: > 512 } ? userAgent[..512] : userAgent,
+                CreatedAt = issuedAt,
+                CreatedBy = account.UserId,
+            };
+            db.AuthSessions.Add(session);
+            await db.SaveChangesAsync();
+            sessionId = session.Id;
+        }
+        else
+        {
+            // 갱신은 세션 수명을 늘리지 않는다 — 갱신 토큰도 세션이 끝나는 때를 넘지 않게 자른다.
+            var session = await db.AuthSessions.FirstAsync(x => x.Id == sessionId);
+            session.LastRefreshedAt = issuedAt;
+            await db.SaveChangesAsync();
+            if (session.ExpiresAt < refreshExpires)
+            {
+                refreshExpires = DateTime.SpecifyKind(session.ExpiresAt, DateTimeKind.Utc);
+            }
+        }
+
         var claims = new List<Claim>
         {
+            new(SessionClaim, sessionId),
             new(ClaimTypes.NameIdentifier, account.UserId),
             new(ClaimTypes.Name, account.UserName ?? string.Empty),
             new("Id", account.Id),
@@ -109,7 +156,7 @@ public sealed class AccessTokenFactory(
             claims.Add(new Claim(ClaimTypes.Role, roleId));
         }
 
-        var accessExpires = issuedAt.AddDays(AccessTokenDays);
+        var accessExpires = issuedAt.AddMinutes(AccessTokenMinutes);
         var accessToken = Write(new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
@@ -121,9 +168,9 @@ public sealed class AccessTokenFactory(
 
         // ── 갱신 토큰 ────────────────────────────────────────
         // 갱신 토큰에는 최소만 담는다. 역할·이메일은 갱신할 때 다시 읽어 싣는다 — 여기 두면 30일 동안 옛 권한이 따라다닌다.
-        var refreshExpires = issuedAt.AddDays(Math.Max(RefreshTokenDays, 1));
         var refreshClaims = new List<Claim>
         {
+            new(SessionClaim, sessionId),
             new("Id", account.Id),
             new(ClaimTypes.NameIdentifier, account.UserId),
         };
@@ -143,12 +190,13 @@ public sealed class AccessTokenFactory(
             SigningCredentials = Credentials(key),
         });
 
-        return new IssuedTokens(accessToken, accessExpires, refreshToken, refreshExpires);
+        return new IssuedTokens(accessToken, accessExpires, refreshToken, refreshExpires, sessionId);
     }
 
     /// <summary>갱신 토큰을 검증하고 주인을 돌려준다. 못 믿을 값이면 null.</summary>
-    /// 거절은 서명·기간·대상이 안 맞을 때, 계정이 없을 때, 토큰을 받은 뒤 비밀번호가 바뀌었을 때다.
-    public async Task<Account?> ValidateRefreshTokenAsync(string? refreshToken)
+    /// 거절은 서명·기간·대상이 안 맞을 때, 세션이 없거나 닫혔을 때, 계정이 없을 때, 토큰을 받은 뒤 비밀번호가 바뀌었을 때다.
+    /// 세션이 없는 옛 갱신 토큰도 거절한다 — 되돌릴 길이 없는 토큰을 계속 받아 주면 고친 뜻이 없다.
+    public async Task<RefreshGrant?> ValidateRefreshTokenAsync(string? refreshToken)
     {
         if (string.IsNullOrWhiteSpace(refreshToken) || !RefreshEnabled)
         {
@@ -182,6 +230,20 @@ public sealed class AccessTokenFactory(
             return null;
         }
 
+        var sessionId = principal.FindFirst(SessionClaim)?.Value;
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+        var sessionAlive = await db.AuthSessions.AnyAsync(s =>
+            s.Id == sessionId && s.AccountId == accountId && s.RevokedAt == null && s.ExpiresAt > now);
+        if (!sessionAlive)
+        {
+            return null;
+        }
+
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && !a.IsDeleted);
         if (account is null)
         {
@@ -206,7 +268,35 @@ public sealed class AccessTokenFactory(
             return null;
         }
 
-        return account;
+        return new RefreshGrant(account, sessionId);
+    }
+
+    /// <summary>갱신 토큰에서 세션을 꺼낸다. 로그아웃이 쓴다 — 기간이 지났어도 서명이 맞으면 그 세션을 닫는다.</summary>
+    public string? ReadSessionId(string? refreshToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return null;
+        }
+
+        try
+        {
+            var principal = Handler.ValidateToken(refreshToken, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(SigningKey()),
+                ValidateIssuer = true,
+                ValidIssuer = Issuer,
+                ValidateAudience = true,
+                ValidAudience = RefreshAudience,
+                ValidateLifetime = false,
+            }, out _);
+            return principal.FindFirst(SessionClaim)?.Value;
+        }
+        catch (Exception ex) when (ex is SecurityTokenException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     /// <summary>갱신 쿠키를 굽는다. 로그인과 갱신이 같은 옵션을 써야 브라우저가 같은 쿠키로 알아본다.</summary>

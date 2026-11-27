@@ -43,6 +43,30 @@ public class EmailVerificationService : IEmailVerificationService
         _logger = logger;
     }
 
+    /// <summary>번호 하나로 틀릴 수 있는 횟수. 넘으면 번호를 버린다 — 6자리를 5분 안에 다 맞춰 보는 길을 끊는다.</summary>
+    public const int MaxWrongAttempts = 5;
+
+    /// <summary>계정 하나가 한 시간에 보낼 수 있는 번호 수. 회사 발신자로 아무 주소에 메일을 쏘는 길을 좁힌다.</summary>
+    public const int MaxSendsPerHour = 5;
+
+    /// <summary>다시 보내기까지 기다리는 시간.</summary>
+    public static readonly TimeSpan ResendCooldown = TimeSpan.FromSeconds(60);
+
+    /// <summary>캐시에 두는 번호. 틀린 횟수를 함께 들고 있어야 번호마다 셀 수 있다.</summary>
+    private sealed class PendingCode
+    {
+        public required string Code { get; init; }
+        public int WrongAttempts;
+    }
+
+    /// <summary>계정의 보내기 기록(한 시간 창).</summary>
+    private sealed class SendWindow
+    {
+        public readonly List<DateTime> SentAt = [];
+    }
+
+    private static string SendKey(string accountId) => $"EmailVerifySend:{accountId}";
+
     private static string CodeKey(string accountId, string email) => $"EmailVerifyCode:{accountId}:{email.Trim().ToLowerInvariant()}";
     private static string VerifiedKey(string accountId, string email) => $"EmailVerified:{accountId}:{email.Trim().ToLowerInvariant()}";
 
@@ -67,11 +91,38 @@ public class EmailVerificationService : IEmailVerificationService
             return (false, $"이미 다른 사용자가 쓰고 있는 이메일입니다: {email}", null);
         }
 
+        // 보내기 제한은 계정 단위로 센다 — 주소를 바꿔 가며 보내도 같은 통이다.
+        var now = DateTime.UtcNow;
+        var window = _cache.GetOrCreate(SendKey(accountId), e =>
+        {
+            e.SlidingExpiration = TimeSpan.FromHours(1);
+            return new SendWindow();
+        })!;
+
+        lock (window)
+        {
+            window.SentAt.RemoveAll(t => t <= now.AddHours(-1));
+
+            if (window.SentAt.Count > 0 && now - window.SentAt[^1] < ResendCooldown)
+            {
+                var wait = (int)Math.Ceiling((ResendCooldown - (now - window.SentAt[^1])).TotalSeconds);
+                return (false, $"인증번호를 방금 보냈습니다. {wait}초 뒤에 다시 보내 주십시오.", null);
+            }
+
+            if (window.SentAt.Count >= MaxSendsPerHour)
+            {
+                _logger.LogWarning("이메일 인증번호 보내기 제한에 걸렸습니다: account={AccountId}", accountId);
+                return (false, "인증번호를 너무 여러 번 요청했습니다. 한 시간 뒤에 다시 시도해 주십시오.", null);
+            }
+
+            window.SentAt.Add(now);
+        }
+
         // 6자리 난수 생성
         var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
-        // 캐시에 5분간 저장
-        _cache.Set(CodeKey(accountId, normalizedEmail), code, TimeSpan.FromMinutes(5));
+        // 캐시에 5분간 저장. 새로 보내면 앞 번호와 틀린 횟수는 함께 버려진다.
+        _cache.Set(CodeKey(accountId, normalizedEmail), new PendingCode { Code = code }, TimeSpan.FromMinutes(5));
 
         // 메일 발송
         var subject = "[JSini] 이메일 변경 인증번호 안내";
@@ -117,14 +168,27 @@ public class EmailVerificationService : IEmailVerificationService
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var key = CodeKey(accountId, normalizedEmail);
 
-        if (!_cache.TryGetValue<string>(key, out var expectedCode) || string.IsNullOrEmpty(expectedCode))
+        if (!_cache.TryGetValue<PendingCode>(key, out var pending) || pending is null)
         {
             return Task.FromResult<(bool, string, string?)>((false, "인증번호가 만료되었거나 발송 내역이 없습니다. 다시 발송해 주십시오.", null));
         }
 
-        if (!string.Equals(expectedCode.Trim(), code.Trim(), StringComparison.Ordinal))
+        var matched = CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.ASCII.GetBytes(pending.Code),
+            System.Text.Encoding.ASCII.GetBytes(code.Trim()));
+
+        if (!matched)
         {
-            return Task.FromResult<(bool, string, string?)>((false, "인증번호가 일치하지 않습니다. 정확히 입력해 주십시오.", null));
+            var wrong = Interlocked.Increment(ref pending.WrongAttempts);
+            if (wrong >= MaxWrongAttempts)
+            {
+                // 번호를 버린다. 새 번호는 보내기 제한(한 시간 5번)을 다시 지나야 한다.
+                _cache.Remove(key);
+                _logger.LogWarning("이메일 인증번호를 {Count}번 틀려 폐기했습니다: account={AccountId}", wrong, accountId);
+                return Task.FromResult<(bool, string, string?)>((false, $"인증번호를 {MaxWrongAttempts}번 틀려 그 번호를 없앴습니다. 다시 발송해 주십시오.", null));
+            }
+
+            return Task.FromResult<(bool, string, string?)>((false, $"인증번호가 일치하지 않습니다. ({MaxWrongAttempts - wrong}번 남음)", null));
         }
 
         // 일치 시 사용한 인증코드 삭제
@@ -146,7 +210,8 @@ public class EmailVerificationService : IEmailVerificationService
 
         if (_cache.TryGetValue<string>(key, out var cachedToken) && !string.IsNullOrEmpty(cachedToken))
         {
-            if (string.IsNullOrEmpty(token) || string.Equals(cachedToken, token, StringComparison.OrdinalIgnoreCase))
+            // 인증 토큰이 있어야 한다. 비워 보내도 통과시키면 인증 화면을 거친 다른 창의 결과를 가로챈다.
+            if (!string.IsNullOrEmpty(token) && string.Equals(cachedToken, token, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }

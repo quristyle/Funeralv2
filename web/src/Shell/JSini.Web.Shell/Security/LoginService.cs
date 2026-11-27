@@ -303,7 +303,8 @@ public sealed class LoginService(
 
                 if ((int)response.StatusCode == 429)
                 {
-                    return new LoginResult(false, "시도가 너무 잦습니다. 잠시 뒤 다시 시도해 주세요.");
+                    var locked = await ReadMessageAsync(response, cancellationToken);
+                    return new LoginResult(false, locked ?? "시도가 너무 잦습니다. 잠시 뒤 다시 시도해 주세요.");
                 }
 
                 var reason = await ReadMessageAsync(response, cancellationToken);
@@ -326,6 +327,47 @@ public sealed class LoginService(
     /// <summary>인증 쿠키를 지운다.</summary>
     public static Task SignOutAsync(HttpContext httpContext) =>
         httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+    /// <summary>AuthServer 의 세션을 닫고 인증 쿠키를 지운다. 쿠키만 지우면 그 안의 갱신 토큰이 서버에서는 30일 산다 —
+    /// 쿠키를 미리 베껴 간 사람이 로그아웃 뒤에도 계속 쓴다. 서버가 안 받아도 쿠키는 지운다(로그아웃이 막히면 안 된다).</summary>
+    public async Task SignOutEverywhereAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
+    {
+        var refreshCookie = httpContext.User.FindFirstValue(TokenStore.RefreshCookieClaim);
+        var accessToken = httpContext.User.FindFirstValue(TokenStore.AccessTokenClaim);
+
+        if (refreshCookie is { Length: > 0 } || accessToken is { Length: > 0 })
+        {
+            try
+            {
+                var client = httpClientFactory.CreateClient(HttpClientName);
+                using var request = new HttpRequestMessage(HttpMethod.Post, "auth/logout");
+                if (refreshCookie is { Length: > 0 })
+                {
+                    request.Headers.Add("Cookie", refreshCookie);
+                }
+
+                if (accessToken is { Length: > 0 })
+                {
+                    request.Headers.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+                }
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(TimeSpan.FromSeconds(5));
+                using var response = await client.SendAsync(request, timeout.Token);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger.LogWarning("로그아웃 — 서버 세션을 닫지 못했다 ({Status})", (int)response.StatusCode);
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
+            {
+                logger.LogWarning(ex, "로그아웃 — 서버에 닿지 못해 세션을 닫지 못했다");
+            }
+        }
+
+        await SignOutAsync(httpContext);
+    }
 
     // ── 공통 ─────────────────────────────────────────────────────
 
@@ -361,7 +403,9 @@ public sealed class LoginService(
 
                 if ((int)response.StatusCode == 429)
                 {
-                    return new LoginResult(false, "로그인 시도가 너무 잦습니다. 잠시 뒤 다시 시도해 주세요.");
+                    // AuthServer 의 아이디 잠금은 남은 시간을 실어 준다. 게이트웨이의 IP 제한은 본문이 없다.
+                    var locked = await ReadMessageAsync(response, cancellationToken);
+                    return new LoginResult(false, locked ?? "로그인 시도가 너무 잦습니다. 잠시 뒤 다시 시도해 주세요.");
                 }
 
                 // 403 은 신원이 밝혀진 뒤의 말(승인 대기·정지)이라 그대로 옮긴다. 뭉뚱그리면 소셜 신청자가 신청이 어디까지 갔는지 모른 채 단추를 누른다.

@@ -56,4 +56,10 @@ public static class LoginFailReason
     /// <summary>비밀번호는 맞았지만 쓸 수 있는 계정이 아니다(승인 대기 · 정지).</summary>
     /// BadPassword 와 섞으면 「누가 내 아이디를 두드리나」를 볼 수 없으므로 따로 둔다.
     public const string NotActive = "NOT_ACTIVE";
+
+    /// <summary>로그인한 뒤 비밀번호를 다시 물었는데 틀렸다(잠금화면 · 비밀번호 변경). 로그인 잠금에 함께 센다 — 훔친 세션으로 비밀번호를 맞춰 보는 길이다.</summary>
+    public const string BadPasswordRecheck = "BAD_PASSWORD_RECHECK";
+
+    /// <summary>잠긴 동안 들어온 시도. 비밀번호를 보지도 않았다.</summary>
+    public const string Locked = "LOCKED";
 }

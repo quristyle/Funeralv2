@@ -83,7 +83,8 @@ public sealed class LoginCompletion(
                 expiryDays, account.UserId);
         }
 
-        var issued = await tokenFactory.IssueAsync(account, loginAt);
+        var issued = await tokenFactory.IssueAsync(
+            account, loginAt, sessionId: null, clientIp, http.Request.Headers.UserAgent.ToString());
         var secure = !env.IsDevelopment();
 
         if (tokenFactory.RefreshEnabled)

@@ -16,10 +16,16 @@ public static class AuthEndpoints
 
         group.MapPost("/login", async (LoginRequestDto request, AppDbContext db, IConfiguration config,
             IHostEnvironment env, ILogger<Account> logger,
-            ILoginLogService loginLog, LoginCompletion completion,
+            ILoginLogService loginLog, LoginCompletion completion, LoginThrottle throttle,
             HttpContext http) =>
         {
             logger.LogInformation("로그인 시도: {Username}", request.Username);
+
+            // 잠겨 있으면 비밀번호를 보지도 않는다 — 맞는 비밀번호여도 같은 답이라야 잠김 중에 맞춰 보는 길이 없다.
+            if (await LockedAsync(throttle, loginLog, http, request.Username) is { } locked)
+            {
+                return locked;
+            }
 
             var account = await db.Accounts
                 .FirstOrDefaultAsync(a => a.UserId == request.Username);
@@ -79,10 +85,16 @@ public static class AuthEndpoints
         // 게이트웨이의 auth-route 가 /api/auth/** 를 익명으로 넘기므로(로그인 전 화면이다) 신원 확인은 여기서 전부 한다.
         group.MapPost("/impersonate", async (ImpersonateRequestDto request, AppDbContext db,
             ILogger<Account> logger, ILoginLogService loginLog, LoginCompletion completion,
-            IRoleAssignmentService roleService, HttpContext http) =>
+            IRoleAssignmentService roleService, LoginThrottle throttle, HttpContext http) =>
         {
             logger.LogWarning("대리 로그인 시도: admin={Admin} → target={Target}",
                 request.AdminUsername, request.TargetUsername);
+
+            // 관리자 아이디도 같은 잠금을 받는다 — 이 창은 로그인 전 화면에 있어 관리자 비밀번호를 맞춰 보는 또 하나의 문이다.
+            if (await LockedAsync(throttle, loginLog, http, request.AdminUsername) is { } locked)
+            {
+                return locked;
+            }
 
             // 1) 승인하는 시스템관리자의 신원부터 확인한다 — 아이디·비밀번호가 맞아야 한다.
             //    대리 로그인은 개발용 비밀번호 생략(Auth:SkipPasswordCheck)을 적용하지 않는다 — 언제나 실제 비밀번호를 확인한다.
@@ -141,9 +153,9 @@ public static class AuthEndpoints
             }
 
             var cookie = http.Request.Cookies[AccessTokenFactory.RefreshCookieName];
-            var account = await tokenFactory.ValidateRefreshTokenAsync(cookie);
+            var grant = await tokenFactory.ValidateRefreshTokenAsync(cookie);
 
-            if (account is null)
+            if (grant is null)
             {
                 // 쿠키가 없거나 기간이 지났거나 비밀번호가 바뀌었으면 셋 다 다시 로그인하라는 같은 결론이라 401 로 합치고, 남은 쿠키는 지운다.
                 AccessTokenFactory.DeleteRefreshCookie(http.Response, !env.IsDevelopment());
@@ -154,7 +166,7 @@ public static class AuthEndpoints
             }
 
             // 역할·이메일은 다시 읽어 새 토큰에 싣는다 — 갱신 토큰에 얼려 두면 역할을 바꿔도 옛 권한이 만료일까지 따라다닌다.
-            var issued = await tokenFactory.IssueAsync(account, DateTime.UtcNow);
+            var issued = await tokenFactory.IssueAsync(grant.Account, DateTime.UtcNow, grant.SessionId);
 
             // 갱신 쿠키도 새로 굽는다(회전) — 계속 쓰는 사람은 다시 로그인할 일이 없고, 쓰지 않으면 30일 뒤 만료된다.
             AccessTokenFactory.AppendRefreshCookie(
@@ -168,9 +180,28 @@ public static class AuthEndpoints
             return Results.Ok(ApiResponse<string>.Ok(issued.AccessToken));
         });
 
-        group.MapPost("/logout", (HttpContext http, IHostEnvironment env) =>
+        // 익명으로 받는다 — 접근 토큰이 이미 만료된 뒤의 로그아웃도 갱신 쿠키만으로 세션을 닫아야 한다.
+        group.MapPost("/logout", async (HttpContext http, IHostEnvironment env,
+            AccessTokenFactory tokenFactory, AppDbContext db, ILogger<Account> logger) =>
         {
-            // 갱신 쿠키를 지운다 — 갱신 토큰을 DB 에 두지 않으므로 이 방식에서 세션을 즉시 끊는 유일한 수단이다.
+            // 세션을 닫는다. 갱신 쿠키가 가리키는 것과 접근 토큰이 가리키는 것 둘 다 — 셸은 둘을 함께 보낸다.
+            var sessionIds = new HashSet<string>(StringComparer.Ordinal);
+            if (tokenFactory.ReadSessionId(http.Request.Cookies[AccessTokenFactory.RefreshCookieName]) is { Length: > 0 } fromCookie)
+            {
+                sessionIds.Add(fromCookie);
+            }
+
+            if (http.User.FindFirst(AccessTokenFactory.SessionClaim)?.Value is { Length: > 0 } fromToken)
+            {
+                sessionIds.Add(fromToken);
+            }
+
+            foreach (var sessionId in sessionIds)
+            {
+                var closed = await db.RevokeSessionAsync(sessionId, AuthSessionRevokeReason.Logout);
+                logger.LogInformation("로그아웃 — 세션 {SessionId} 닫음({Closed})", sessionId, closed);
+            }
+
             AccessTokenFactory.DeleteRefreshCookie(http.Response, !env.IsDevelopment());
 
             // 파일 읽기용 쿠키를 지운다 — 심을 때와 옵션(특히 Path)이 같아야 브라우저가 같은 쿠키로 알아본다.
@@ -192,7 +223,7 @@ public static class AuthEndpoints
             });
 
             return Results.Ok(ApiResponse<bool>.Ok(true, "로그아웃 성공"));
-        }).RequireAuthorization();
+        }).AllowAnonymous();
     
 
         // --- 인증 (Auth) 엔드포인트 ---
@@ -205,6 +236,24 @@ public static class AuthEndpoints
         .RequireAuthorization();
 
 
+    }
+
+    /// <summary>아이디가 잠겨 있으면 429 응답을, 아니면 null 을 준다. 잠긴 채 들어온 시도도 기록에 남긴다(잠금 셈에는 안 들어간다).</summary>
+    private static async Task<IResult?> LockedAsync(
+        LoginThrottle throttle, ILoginLogService loginLog, HttpContext http, string? loginId)
+    {
+        if (string.IsNullOrEmpty(loginId)
+            || await throttle.RemainingLockAsync(loginId) is not { } remaining)
+        {
+            return null;
+        }
+
+        await loginLog.WriteAsync(
+            null, loginId, success: false, LoginFailReason.Locked,
+            ResolveClientIp(http), http.Request.Headers.UserAgent.ToString());
+
+        http.Response.Headers.RetryAfter = ((int)Math.Ceiling(remaining.TotalSeconds)).ToString();
+        return Results.Json(ApiResponse<object>.Fail(LoginThrottle.Message(remaining), "429"), statusCode: 429);
     }
 
     /// <summary>요청을 보낸 실제 클라이언트 IP. 본체는 <see cref="LoginCompletion.ResolveClientIp"/> 하나다 — 여기 한 벌을 더 두면 프록시 헤더를 읽는 규칙이 두 곳으로 갈린다.</summary>

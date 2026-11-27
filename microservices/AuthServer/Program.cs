@@ -114,6 +114,8 @@ builder.Services.AddHostedService<AuthServer.Services.ServerPingWatcher>();
 builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
 // 로그인과 갱신이 **같은 코드로** 토큰을 만들게 한다 (AccessTokenFactory 머리말 참고).
 builder.Services.AddScoped<AccessTokenFactory>();
+// 아이디 단위 로그인 잠금 — 로그인 · 대리 로그인 · 잠금화면 · 비밀번호 변경이 함께 쓴다.
+builder.Services.AddScoped<LoginThrottle>();
 // 「이 사람이 맞다」 뒤의 뒤처리 한 벌. 비밀번호 로그인과 패스키 로그인이 함께 쓴다.
 builder.Services.AddScoped<LoginCompletion>();
 // 패스키(지문·얼굴). 도전값 보관에 IMemoryCache 를 쓴다(위 AddMemoryCache).

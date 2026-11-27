@@ -67,6 +67,45 @@ public sealed class NoticeHtmlTests
             NoticeHtml.Sanitize("<p style=\"text-align: center\">글</p>"));
     }
 
+    /// <summary>고객이 쓴 글이 담당자 화면을 가짜 로그인 창으로 덮는 길. 위치·겹침 속성은 목록에 없고, 이스케이프로 비켜 가도 글자 검사에서 떨어진다.</summary>
+    [Theory]
+    [InlineData("<div style=\"position:fixed;inset:0;z-index:99999;background:#fff\">다시 로그인</div>")]
+    [InlineData("<div style=\"position: absolute; top: 0; left: 0\">다시 로그인</div>")]
+    [InlineData("<div style=\"pos\\69 tion:fixed\">다시 로그인</div>")]
+    [InlineData("<div style=\"background:\\75 rl(https://evil.example/x)\">다시 로그인</div>")]
+    [InlineData("<div style=\"display:block;transform:translateY(-200px)\">다시 로그인</div>")]
+    [InlineData("<div style=\"margin-top:-500px\">다시 로그인</div>")]
+    [InlineData("<div style=\"color:red !important\">다시 로그인</div>")]
+    [InlineData("<div style=\"color:&#x72;ed\">다시 로그인</div>")]
+    [InlineData("<div style=\"width:calc(100vw)\">다시 로그인</div>")]
+    public void 화면을_덮는_style_은_떨어진다(string html) =>
+        Assert.Equal("<div>다시 로그인</div>", NoticeHtml.Sanitize(html));
+
+    [Fact]
+    public void 서식_style_은_남고_섞인_위험한_선언만_빠진다()
+    {
+        Assert.Equal(
+            "<span style=\"color: rgb(230, 0, 0); font-weight: bold\">글</span>",
+            NoticeHtml.Sanitize("<span style=\"color: rgb(230, 0, 0); position: fixed; font-weight: bold\">글</span>"));
+
+        Assert.Equal(
+            "<blockquote style=\"margin: 0; border-left: 1px solid #94a3b8; padding: 2px 14px\">요약</blockquote>",
+            NoticeHtml.Sanitize("<blockquote style=\"margin:0;border-left:1px solid #94a3b8;padding:2px 14px;\">요약</blockquote>"));
+    }
+
+    /// <summary>포털 CSS 에 이미 있는 이름(position-fixed · modal)으로는 style 없이도 화면을 덮는다. 편집기 것과 요약 상자만 받는다.</summary>
+    [Fact]
+    public void class_는_편집기_것만_받는다()
+    {
+        Assert.Equal("<div>글</div>", NoticeHtml.Sanitize("<div class=\"position-fixed top-0 start-0 w-100 h-100 modal\">글</div>"));
+        Assert.Equal(
+            "<p class=\"ql-align-center ql-indent-1\">글</p>",
+            NoticeHtml.Sanitize("<p class=\"ql-align-center fixed-top ql-indent-1\">글</p>"));
+        Assert.Equal(
+            "<blockquote class=\"hd-summary\">요약</blockquote>",
+            NoticeHtml.Sanitize("<blockquote class=\"hd-summary\">요약</blockquote>"));
+    }
+
     /// <summary>모르는 태그는 껍데기만 버리고 글자는 남긴다 — 서식이 조금 빠지는 것이 문장이 통째로 사라지는 것보다 낫다.</summary>
     [Fact]
     public void 모르는_태그는_글자만_남는다() =>

@@ -50,6 +50,9 @@ public class AppDbContext : DbContext
     /// <summary>비밀번호 재설정 링크. 해시만 들어 있다 — 엔티티 주석 참고.</summary>
     public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
+    /// <summary>로그인 세션. 토큰을 되돌리는 자리 — 엔티티 주석 참고.</summary>
+    public DbSet<AuthSession> AuthSessions { get; set; }
+
     /// <summary>패스키(지문·얼굴). 공개 키만 들어 있다 — 엔티티 주석 참고.</summary>
     public DbSet<AccountWebAuthnCredential> AccountWebAuthnCredentials { get; set; }
 
@@ -99,6 +102,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PasswordResetToken>()
             .HasIndex(t => t.TokenHash)
             .IsUnique();
+
+        // 비밀번호를 바꾸면 그 계정의 열린 세션을 한꺼번에 닫는다.
+        modelBuilder.Entity<AuthSession>()
+            .HasIndex(s => s.AccountId);
+
+        modelBuilder.Entity<AuthSession>()
+            .HasOne(s => s.Account)
+            .WithMany()
+            .HasForeignKey(s => s.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // ── 패스키 ────────────────────────────────────────────
         // 로그인은 자격 증명 아이디로만 주인을 찾으므로 색인이 필요하고, 고유해야 같은 열쇠가 두 계정에 걸리지 않는다.

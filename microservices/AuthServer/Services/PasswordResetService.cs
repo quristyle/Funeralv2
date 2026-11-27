@@ -205,6 +205,7 @@ public class PasswordResetService(
         entry.UsedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+        await db.RevokeAllSessionsAsync(entry.Account.Id, AuthSessionRevokeReason.PasswordReset, ct);
 
         logger.LogInformation("비밀번호를 재설정했다 ({LoginId})", entry.Account.UserId);
         return PasswordResetResult.Success;

@@ -469,6 +469,78 @@ namespace AuthServer.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AuthServer.Entities.AuthSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("account_id")
+                        .HasComment("세션의 주인.");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at")
+                        .HasComment("이 세션이 끝나는 시각(UTC). 갱신해도 늘지 않는다 — 로그인 한 번이 사는 최대 길이다.");
+
+                    b.Property<string>("Ip")
+                        .HasColumnType("text")
+                        .HasColumnName("ip")
+                        .HasComment("로그인한 IP.");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LastRefreshedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_refreshed_at")
+                        .HasComment("마지막으로 갱신한 시각(UTC).");
+
+                    b.Property<string>("RevokeReason")
+                        .HasColumnType("text")
+                        .HasColumnName("revoke_reason")
+                        .HasComment("닫힌 까닭(LOGOUT · PASSWORD_CHANGED · PASSWORD_RESET · ADMIN_PASSWORD_RESET).");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at")
+                        .HasComment("닫힌 시각(UTC). 비어 있으면 살아 있다.");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("text")
+                        .HasColumnName("user_agent")
+                        .HasComment("로그인한 브라우저·기기.");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("auth_sessions", "scom", t =>
+                        {
+                            t.HasComment("로그인 한 번이 만든 세션. 접근·갱신 토큰이 모두 SessionId 클레임으로 이 줄을 가리킨다.");
+                        });
+                });
+
             modelBuilder.Entity("AuthServer.Entities.BirthdayMessage", b =>
                 {
                     b.Property<int>("Id")
@@ -2955,6 +3027,17 @@ namespace AuthServer.Migrations
                 });
 
             modelBuilder.Entity("AuthServer.Entities.AccountWebAuthnCredential", b =>
+                {
+                    b.HasOne("AuthServer.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("AuthServer.Entities.AuthSession", b =>
                 {
                     b.HasOne("AuthServer.Entities.Account", "Account")
                         .WithMany()

@@ -76,6 +76,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             // 아이콘 열쇠는 파일 읽기 경로에서만 신원이다 (iconTokenSubjectPrefix 참고).
             OnTokenValidated = ctx =>
             {
+                // 로그인 토큰(계정 키 "Id" 가 실린 것)은 세션을 가리켜야 한다. 세션이 없으면 되돌릴 길이 없는 옛 7일 토큰이라 받지 않는다 —
+                // 셸이 401 을 받아 갱신하러 가고, 옛 갱신 쿠키도 거절되어 한 번 다시 로그인한다. 메일 사진·알림 아이콘 열쇠에는 "Id" 가 없다.
+                if (ctx.Principal?.FindFirst("Id") is not null
+                    && string.IsNullOrEmpty(ctx.Principal.FindFirst("SessionId")?.Value))
+                {
+                    ctx.Fail("세션이 없는 옛 토큰입니다. 다시 로그인해 주세요.");
+                    return Task.CompletedTask;
+                }
+
                 var subject = ctx.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 if (subject is not null

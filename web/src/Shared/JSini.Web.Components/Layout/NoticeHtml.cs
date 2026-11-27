@@ -60,8 +60,51 @@ public static class NoticeHtml
     /// <summary>그림으로 받아 주는 시작.</summary>
     private static readonly string[] ImageSchemes = ["http://", "https://", "/", "data:image/"];
 
-    /// <summary>style 값에 들어 있으면 그 속성을 통째로 버리는 조각들. 색·정렬만 오는 자리라 url() 이나 @import 가 보이면 바깥으로 나가려는 것이다.</summary>
-    private static readonly string[] StyleBanned = ["url(", "expression", "javascript:", "@import", "behavior", "/*"];
+    /// <summary>style 에 남기는 CSS 속성. 글꼴·색·정렬·여백·테두리·표 크기뿐이다.</summary>
+    /// 막는 목록으로는 못 막는다 — CSS 이스케이프(<c>\75 rl(</c>)로 비켜 가고, <c>position:fixed;inset:0</c> 상자 하나로
+    /// 고객이 쓴 글이 담당자 화면 전체를 가짜 「다시 로그인」 창으로 덮는다. 그래서 위치·겹침·표시 방식(position · z-index ·
+    /// display · transform · opacity · background 그림)은 아예 목록에 없다.
+    private static readonly HashSet<string> StyleProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "color", "background-color",
+        "font-family", "font-size", "font-weight", "font-style", "font-variant",
+        "text-align", "text-decoration", "text-decoration-line", "text-decoration-color", "text-decoration-style",
+        "text-indent", "text-transform", "line-height", "letter-spacing", "word-spacing",
+        "white-space", "word-break", "overflow-wrap", "vertical-align", "list-style-type",
+        "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
+        "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
+        "border", "border-top", "border-right", "border-bottom", "border-left",
+        "border-color", "border-style", "border-width", "border-radius", "border-collapse", "border-spacing",
+        "width", "height", "max-width", "max-height", "min-width", "min-height",
+        "float", "clear",
+    };
+
+    /// <summary>음수를 받지 않는 속성. 음수 여백은 본문 밖 우리 화면(머리띠·단추) 위로 글을 끌어 올린다.</summary>
+    private static readonly string[] NoNegativePrefixes = ["margin", "text-indent", "letter-spacing", "word-spacing"];
+
+    /// <summary>CSS 값에 허용하는 함수. 색만이다 — <c>url(</c> · <c>expression(</c> · <c>var(</c> · <c>attr(</c> 은 빠진다.</summary>
+    private static readonly HashSet<string> StyleFunctions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "rgb", "rgba", "hsl", "hsla",
+    };
+
+    /// <summary>CSS 값으로 받는 글자. 역슬래시(이스케이프) · 쌍점 · 세미콜론 · 슬래시 · <c>@</c> · <c>!</c> · <c>&amp;</c>(엔티티) 가 없다.</summary>
+    private static readonly System.Text.RegularExpressions.Regex StyleValueChars =
+        new(@"^[A-Za-z0-9#%.,()'"" \-]+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>값 안의 함수 이름(<c>이름(</c>).</summary>
+    private static readonly System.Text.RegularExpressions.Regex StyleFunctionName =
+        new(@"([A-Za-z-]*)\s*\(", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>음수 숫자(<c>-3px</c> · <c>-.5em</c>).</summary>
+    private static readonly System.Text.RegularExpressions.Regex NegativeNumber =
+        new(@"(^|[\s,(])-\s*[0-9.]", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>class 로 받는 이름. 서식 편집기(Quill)가 박는 것과 우리가 박는 요약 상자뿐이다.</summary>
+    /// 아무 이름이나 받으면 포털 CSS 에 이미 있는 <c>position-fixed</c> · <c>modal</c> · <c>fixed-top</c> 같은 이름으로 style 없이도 화면을 덮는다.
+    private static readonly System.Text.RegularExpressions.Regex AllowedClass =
+        new(@"^(hd-summary|ql-(align-(left|center|right|justify)|indent-[0-9]{1,2}|size-(small|large|huge|[0-9]{1,3}(px|pt))|font-[a-z0-9-]{1,40}|direction-(rtl|ltr)|syntax|code-block|code-block-container|ui|cursor))$",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     /// <summary>본문을 화면에 넣어도 되는 HTML 로 바꾼다.</summary>
     /// <param name="html">정화할 원본 HTML.</param>
@@ -254,9 +297,17 @@ public static class NoticeHtml
 
         if (name.Equals("style", StringComparison.OrdinalIgnoreCase))
         {
-            return StyleBanned.Any(b => trimmed.Contains(b, StringComparison.OrdinalIgnoreCase))
-                ? null
-                : trimmed;
+            return CleanStyle(trimmed);
+        }
+
+        if (name.Equals("class", StringComparison.OrdinalIgnoreCase))
+        {
+            var kept = trimmed
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                .Where(c => AllowedClass.IsMatch(c))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            return kept.Length == 0 ? null : string.Join(' ', kept);
         }
 
         if (name.Equals("target", StringComparison.OrdinalIgnoreCase))
@@ -275,6 +326,57 @@ public static class NoticeHtml
         }
 
         return trimmed;
+    }
+
+    /// <summary>style 을 선언 하나씩 보고 허용 목록에 든 것만 다시 적는다. 하나도 안 남으면 <c>null</c> — 속성이 통째로 빠진다.</summary>
+    /// 선언을 고쳐 쓰지 않고 버리기만 한다. 값에서 무엇을 걷어 낸 나머지를 살리면 걷어 낸 자리로 새 낱말이 이어 붙는다.
+    internal static string? CleanStyle(string style)
+    {
+        var kept = new List<string>();
+
+        foreach (var declaration in style.Split(';'))
+        {
+            var colon = declaration.IndexOf(':');
+            if (colon <= 0)
+            {
+                continue;
+            }
+
+            var property = declaration[..colon].Trim().ToLowerInvariant();
+            var value = declaration[(colon + 1)..].Trim();
+
+            if (!StyleProperties.Contains(property)
+                || value.Length is 0 or > 200
+                || !StyleValueChars.IsMatch(value))
+            {
+                continue;
+            }
+
+            var functionsOk = true;
+            foreach (System.Text.RegularExpressions.Match m in StyleFunctionName.Matches(value))
+            {
+                if (!StyleFunctions.Contains(m.Groups[1].Value))
+                {
+                    functionsOk = false;
+                    break;
+                }
+            }
+
+            if (!functionsOk)
+            {
+                continue;
+            }
+
+            if (NoNegativePrefixes.Any(p => property.StartsWith(p, StringComparison.Ordinal))
+                && NegativeNumber.IsMatch(value))
+            {
+                continue;
+            }
+
+            kept.Add(property + ": " + value);
+        }
+
+        return kept.Count == 0 ? null : string.Join("; ", kept);
     }
 
     /// <summary>본문에 박힌 /api/file/… 주소를 셸의 중계 경로로 옮긴다. Vue 시절 편집기가 박은 그림 주소는 포털 오리진에 /api 가 없어 옛 공지의 그림이 전부 깨진다. 저장된 값은 고치지 않고 보여 줄 때만 옮긴다 — DB 를 건드리면 되돌릴 수 없다. 규칙은 FileDownload.RelayUrl 한 곳에 있다.</summary>

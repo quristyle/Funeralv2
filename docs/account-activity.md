@@ -8,8 +8,8 @@
 「이 계정 아직 쓰나」를 묻고 목록을 여는데, 여태 답할 값이
 `scom.accounts.last_login_at` 하나뿐이었고 **그 값으로는 그 물음에 못 답한다.**
 
-access token 이 7일이고 갱신 쿠키가 30일이다(`Auth:AccessTokenDays` ·
-`RefreshTokenDays`). 브라우저를 안 닫는 사람 — 포털을 홈 화면에 깔아 둔 사람이
+갱신 쿠키가 30일이고 access token 은 그 사이 저절로 갱신된다(`Auth:AccessTokenMinutes` 15분 ·
+`RefreshTokenDays` — 세션은 [token-session.md](token-session.md)). 브라우저를 안 닫는 사람 — 포털을 홈 화면에 깔아 둔 사람이
 특히 — 은 **로그인 화면을 한 달에 한 번도 안 거친다.** 그래서 매일 쓰는 사람이
 「한 달 전에 들어온 사람」으로 보이고, 정말 안 쓰는 계정과 구별되지 않는다.
 

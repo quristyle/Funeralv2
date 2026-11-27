@@ -791,6 +791,7 @@ public class UserService : IUserService
             PasswordPolicy.ExpiryDays(_config), DateTime.UtcNow);
 
         await _db.SaveChangesAsync();
+        await _db.RevokeAllSessionsAsync(account.Id, AuthSessionRevokeReason.AdminPasswordReset);
 
         return new IssuedPasswordDto
         {
@@ -1040,6 +1041,9 @@ public class UserService : IUserService
         // 만료 시계를 다시 맞춘다 — 90일 정책의 기준이다.
         account.PasswordChangedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        // 다른 기기에 열려 있던 세션도 닫는다. 비밀번호를 바꾸는 까닭이 「누가 내 것을 쓰는 것 같다」일 때가 많다.
+        await _db.RevokeAllSessionsAsync(account.Id, AuthSessionRevokeReason.PasswordChanged);
         return ChangePasswordResult.Success;
     }
 

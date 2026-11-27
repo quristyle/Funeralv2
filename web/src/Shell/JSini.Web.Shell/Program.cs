@@ -144,9 +144,9 @@ app.MapPost("/passkey/options", async (
 app.MapSocialLoginFlow();
 
 // 로그아웃은 POST 다(GET 이면 이미지 태그 하나로 로그아웃시킬 수 있다). ?noauto=1 을 붙여 자동 로그인을 한 번만 멈춘다. 맨 /login 이면 바로 다시 들어가고, 패스키 자동 열기도 같은 표시로 멈춘다.
-app.MapPost("/logout", async (HttpContext context) =>
+app.MapPost("/logout", async (HttpContext context, LoginService login) =>
 {
-    await LoginService.SignOutAsync(context);
+    await login.SignOutEverywhereAsync(context, context.RequestAborted);
     return Results.Redirect("/login?noauto=1");
 }).RequireAuthorization();
 

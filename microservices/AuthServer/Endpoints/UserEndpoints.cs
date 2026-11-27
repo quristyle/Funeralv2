@@ -253,15 +253,30 @@ public static class UserEndpoints
         })
         .WithName("VerifyEmailCode");
 
-        group.MapPost("/change-password", async (UserContext? user, [FromBody] ChangePasswordDto request, [FromServices] IUserService userService) =>
+        group.MapPost("/change-password", async (UserContext? user, [FromBody] ChangePasswordDto request,
+            [FromServices] IUserService userService, [FromServices] LoginThrottle throttle,
+            [FromServices] ILoginLogService loginLog, HttpContext http) =>
         {
             if (user is null) 
             {
                 return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
             }
 
+            // 지금 비밀번호를 맞춰 보는 길이기도 하다 — 로그인과 같은 잠금을 받는다.
+            if (await throttle.RemainingLockAsync(user.UserId) is { } remaining)
+            {
+                return Results.Json(ApiResponse<object>.Fail(LoginThrottle.Message(remaining), "429"), statusCode: 429);
+            }
+
             // 90일 만료로 온 사용자에게는 이유를 구분해 돌려준다 — 뭉뚱그리면 무엇을 고칠지 알 수 없다.
             var result = await userService.ChangePasswordAsync(user.UserId, request);
+            if (result == ChangePasswordResult.OldPasswordMismatch)
+            {
+                await loginLog.WriteAsync(
+                    null, user.UserId, success: false, LoginFailReason.BadPasswordRecheck,
+                    LoginCompletion.ResolveClientIp(http), http.Request.Headers.UserAgent.ToString());
+            }
+
             if (result != ChangePasswordResult.Success)
             {
                 var (message, code) = result switch
@@ -289,14 +304,27 @@ public static class UserEndpoints
         // 비밀번호 확인(잠금화면) — 아무것도 바꾸지 않고 맞는지만 준다. 로그인 API 를 다시 부르면 새 토큰이 발급되어 기존 세션과 섞이므로 따로 둔다.
         group.MapPost("/verify-password", async (
             UserContext? user, [FromBody] VerifyPasswordDto request,
-            [FromServices] IUserService userService) =>
+            [FromServices] IUserService userService, [FromServices] LoginThrottle throttle,
+            [FromServices] ILoginLogService loginLog, HttpContext http) =>
         {
             if (user is null)
             {
                 return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
             }
 
+            if (await throttle.RemainingLockAsync(user.UserId) is { } remaining)
+            {
+                return Results.Json(ApiResponse<object>.Fail(LoginThrottle.Message(remaining), "429"), statusCode: 429);
+            }
+
             var matched = await userService.VerifyPasswordAsync(user.UserId, request.Password);
+            if (!matched)
+            {
+                // 잠금 셈에 넣는다. 기록이 없으면 잠금화면이 비밀번호를 무한히 맞춰 보는 문이 된다.
+                await loginLog.WriteAsync(
+                    null, user.UserId, success: false, LoginFailReason.BadPasswordRecheck,
+                    LoginCompletion.ResolveClientIp(http), http.Request.Headers.UserAgent.ToString());
+            }
             return Results.Ok(ApiResponse<bool>.Ok(matched));
         })
         .WithName("VerifyPassword");

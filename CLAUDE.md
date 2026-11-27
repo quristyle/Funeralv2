@@ -18,7 +18,7 @@
     바뀌어 서버 로그에는 안 남으므로 셸이 적어 보낸다:
     [docs/menu-usage.md](docs/menu-usage.md)
     계정 관리 목록의 **마지막 로그인 · 마지막 사용**이 그 길에 얹혀 있다 —
-    토큰이 7일·갱신 쿠키가 30일이라 **로그인 시각만 보면 매일 쓰는 사람도
+    갱신 쿠키가 30일이라 **로그인 시각만 보면 매일 쓰는 사람도
     「한 달 전 사람」**이다: [docs/account-activity.md](docs/account-activity.md)
     **권한관리 밖의 주소는 기본으로 막히고** 막힌 사람과 주소가 여기 쌓인다 —
     메뉴에 올릴 수 없는 상세 화면은 `[ScreenAccess]` 로 **부모 메뉴를 가리킨다**:
@@ -200,6 +200,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 각 영역의 세부 규칙은 해당 디렉터리의 CLAUDE.md 참고:
 
 - [docs/utc-time.md](docs/utc-time.md) — 시각을 UTC 로 다루는 규칙과 한국 시각이 남은 자리
+- [docs/token-session.md](docs/token-session.md) — 로그인 세션(접근 토큰 15분 · 로그아웃·비밀번호
+  변경이 세션을 닫는다 · **배포 때 옛 토큰은 한 번 다시 로그인**) · 아이디 단위 잠금 · 이메일 인증번호 제한
 - [docs/security-hardening.md](docs/security-hardening.md) — 서비스별로 **스스로 막아야 하는
   자리**(게이트웨이가 익명으로 넘기는 `/api/auth/**` 등)와 문지기 · 아직 남은 구멍
 - [docs/security-audit-2026-11-27.md](docs/security-audit-2026-11-27.md) — 전수 점검: **운영 DB 가
