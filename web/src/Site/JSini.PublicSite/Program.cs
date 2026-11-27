@@ -90,6 +90,17 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>();
 
+// 문의 폼 「새 그림」이 화면을 다시 불러오지 않고 그림만 바꾸려고 부른다(contact-captcha.js). 이 앱을 거치는 까닭은 게이트웨이와 오리진이 달라서다.
+// 방문자 주소는 ClientIpHandler 가 넘기므로 게이트웨이의 IP 당 제한(captcha-issue)이 그대로 먹는다. 첫 조각이 '_' 라 언어 붙이기를 건너뛴다.
+app.MapGet("/_captcha", async (SiteApi api, HttpContext http) =>
+{
+    http.Response.Headers.CacheControl = "no-store";
+    var c = await api.CaptchaAsync();
+    return c is null
+        ? Results.StatusCode(StatusCodes.Status503ServiceUnavailable)
+        : Results.Json(new { token = c.Token, image = c.Image });
+});
+
 // 언어 없이 들어오면 /ko 로 보낸다. 302 다. 301 이면 브라우저가 영구 캐시해 나중에 Accept-Language 로 고르는 변경이 먹지 않는다.
 app.MapGet("/", () => Results.Redirect("/ko"));
 

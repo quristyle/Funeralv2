@@ -8,6 +8,7 @@
 <PageTitle>@T.Contact.Title — JSINI</PageTitle>
 <HeadContent>
     <meta name="description" content="@T.Contact.Lead" />
+    <script src="contact-captcha.js" defer></script>
     <meta property="og:title" content="@($"{T.Contact.Title} — JSINI")" />
 </HeadContent>
 
@@ -96,25 +97,26 @@
             </div>
 
             @*
-                캡차. 그림은 SiteServer 가 만든 data URI 다. 「새 그림」은 formnovalidate 로 빈 칸이 있어도 보내지고, 서버는 그 POST 를 접수하지 않고 그림만 바꾼다.
+                캡차. 그림은 SiteServer 가 만든 data URI 다. 「새 그림」은 contact-captcha.js 가 가로채 그림·토큰만 바꾼다(화면을 다시 불러오지 않는다).
+                스크립트가 없거나 실패하면 원래대로 formnovalidate POST 가 가고, 서버는 그것을 접수하지 않고 그림만 바꾼다.
             *@
             <div class="field captcha">
                 <span class="field__label">@T.Contact.Form.Captcha</span>
                 <div class="captcha__row">
                     @if (_captchaImage is not null)
                     {
-                        <img class="captcha__image" src="@_captchaImage" width="180" height="60" alt="@T.Contact.Form.CaptchaImageAlt" />
+                        <img class="captcha__image" data-captcha-image src="@_captchaImage" width="180" height="60" alt="@T.Contact.Form.CaptchaImageAlt" />
                     }
                     else
                     {
-                        <p class="captcha__missing">@T.Contact.Form.CaptchaUnavailable</p>
+                        <p class="captcha__missing" data-captcha-missing>@T.Contact.Form.CaptchaUnavailable</p>
                     }
-                    <button type="submit" name="@RefreshField" value="1" formnovalidate class="captcha__refresh link-quiet">
+                    <button type="submit" name="@RefreshField" value="1" formnovalidate data-captcha-refresh data-alt="@T.Contact.Form.CaptchaImageAlt" class="captcha__refresh link-quiet">
                         @T.Contact.Form.CaptchaRefresh
                     </button>
                 </div>
-                <InputText type="hidden" @bind-Value="Input!.CaptchaToken" />
-                <InputText @bind-Value="Input!.CaptchaAnswer" class="captcha__answer" maxlength="10" required
+                <InputText type="hidden" @bind-Value="Input!.CaptchaToken" data-captcha-token />
+                <InputText @bind-Value="Input!.CaptchaAnswer" class="captcha__answer" data-captcha-answer maxlength="10" required
                            autocomplete="off" autocapitalize="characters" spellcheck="false"
                            aria-label="@T.Contact.Form.Captcha" aria-describedby="captcha-hint" />
                 <span id="captcha-hint" class="captcha__hint">@T.Contact.Form.CaptchaHint</span>
