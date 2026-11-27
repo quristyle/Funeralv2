@@ -37,7 +37,7 @@
             <div class="form__grid">
                 <label class="field">
                     <span class="field__label">@T.Contact.Form.Name</span>
-                    <InputText @bind-Value="Input!.Name" autocomplete="name" required />
+                    <InputText @bind-Value="Input!.Name" autocomplete="name" maxlength="100" required />
                 </label>
 
                 <label class="field">
@@ -45,12 +45,12 @@
                         @T.Contact.Form.Company
                         <span class="field__optional">(@T.Contact.Form.Optional)</span>
                     </span>
-                    <InputText @bind-Value="Input!.Company" autocomplete="organization" />
+                    <InputText @bind-Value="Input!.Company" autocomplete="organization" maxlength="200" />
                 </label>
 
                 <label class="field">
                     <span class="field__label">@T.Contact.Form.EmailField</span>
-                    <InputText @bind-Value="Input!.Email" type="email" autocomplete="email" required />
+                    <InputText @bind-Value="Input!.Email" type="email" autocomplete="email" maxlength="254" required />
                 </label>
 
                 <label class="field">
@@ -58,18 +58,18 @@
                         @T.Contact.Form.Phone
                         <span class="field__optional">(@T.Contact.Form.Optional)</span>
                     </span>
-                    <InputText @bind-Value="Input!.Phone" type="tel" autocomplete="tel" />
+                    <InputText @bind-Value="Input!.Phone" type="tel" autocomplete="tel" maxlength="40" />
                 </label>
             </div>
 
             <label class="field">
                 <span class="field__label">@T.Contact.Form.Subject</span>
-                <InputText @bind-Value="Input!.Subject" />
+                <InputText @bind-Value="Input!.Subject" maxlength="200" />
             </label>
 
             <label class="field">
                 <span class="field__label">@T.Contact.Form.Message</span>
-                <InputTextArea @bind-Value="Input!.Message" rows="8" required />
+                <InputTextArea @bind-Value="Input!.Message" rows="8" maxlength="5000" required />
             </label>
 
             @*

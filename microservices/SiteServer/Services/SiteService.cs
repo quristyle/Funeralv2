@@ -19,10 +19,10 @@ public interface ISiteService
     Task<string?> ResolveDownloadAsync(Guid id);
 
     /// <summary>
-    /// 문의를 접수한다. 동의가 없거나 허니팟이 채워져 있으면 <c>null</c> 을 돌려준다.
-    /// 허니팟에 걸린 경우에도 화면에는 성공처럼 보이게 해야 한다 — 봇에게 단서를 주지 않는다.
+    /// 문의를 접수한다. 봇으로 보이면 <c>Saved</c> 도 <c>Rejection</c> 도 비어 있다 — 화면에는 성공처럼
+    /// 보여야 한다(봇에게 단서를 주지 않는다). <c>Rejection</c> 은 사람이 고칠 수 있는 잘못(길이·메일 형식)이다.
     /// </summary>
-    Task<Guid?> CreateInquiryAsync(InquiryRequestDto request, string? clientIp, string? userAgent);
+    Task<InquiryIntake> CreateInquiryAsync(InquiryRequestDto request, string? clientIp, string? userAgent);
 
     /// <summary>조회를 하루 단위로 센다</summary>
     Task RecordVisitAsync(string path, string locale);
@@ -161,31 +161,61 @@ public class SiteService : ISiteService
         return $"/api/file/download/id/{row.FileId}";
     }
 
-    public async Task<Guid?> CreateInquiryAsync(InquiryRequestDto request, string? clientIp, string? userAgent)
+    // 칸별 최대 길이. 표는 text 라 막는 것이 여기뿐이고, 그대로 두면 한 번에 수 MB 가 저장되고 메일로도 나간다.
+    public const int NameMax = 100, CompanyMax = 200, EmailMax = 254, PhoneMax = 40,
+        CategoryMax = 50, SubjectMax = 200, MessageMax = 5000;
+
+    public async Task<InquiryIntake> CreateInquiryAsync(InquiryRequestDto request, string? clientIp, string? userAgent)
     {
         // 허니팟. 사람은 못 보는 칸이라 채워져 있으면 기계다.
         if (!string.IsNullOrWhiteSpace(request.Website))
         {
             _logger.LogInformation("허니팟에 걸린 문의를 버렸습니다. ip={Ip}", clientIp);
-            return null;
+            return InquiryIntake.Dropped;
         }
 
         // 동의 없이 개인정보를 받지 않는다.
         if (!request.Consent)
         {
-            return null;
+            return InquiryIntake.Dropped;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Name)
-            || string.IsNullOrWhiteSpace(request.Email)
-            || string.IsNullOrWhiteSpace(request.Message))
+        // 한 줄짜리 칸은 줄바꿈·제어문자를 걷는다 — 이름과 제목은 알림 메일의 제목 줄로 들어간다.
+        var name = OneLine(request.Name);
+        var company = Optional(OneLine(request.Company));
+        var email = OneLine(request.Email);
+        var phone = Optional(OneLine(request.Phone));
+        var category = Optional(OneLine(request.Category));
+        var subject = OneLine(request.Subject);
+        var raw = request.Message?.Trim() ?? string.Empty;
+
+        if (name.Length == 0 || email.Length == 0 || raw.Length == 0)
         {
-            return null;
+            return InquiryIntake.Dropped;
+        }
+
+        if (name.Length > NameMax || (company?.Length ?? 0) > CompanyMax || email.Length > EmailMax
+            || (phone?.Length ?? 0) > PhoneMax || (category?.Length ?? 0) > CategoryMax
+            || subject.Length > SubjectMax || raw.Length > MessageMax)
+        {
+            _logger.LogInformation("길이를 넘은 문의를 거절했습니다. ip={Ip} 본문={Len}", clientIp, raw.Length);
+            return InquiryIntake.Reject("입력한 내용이 너무 깁니다.");
+        }
+
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+        {
+            return InquiryIntake.Reject("이메일 주소가 올바르지 않습니다.");
+        }
+
+        if (LooksLikeFormSpam(name, company, subject, raw))
+        {
+            _logger.LogWarning("폼 스팸으로 보이는 문의를 버렸습니다. ip={Ip} email={Email}", clientIp, email);
+            return InquiryIntake.Dropped;
         }
 
         // 본문은 에디터가 만든 HTML 이다. 허용 목록으로 거른 것만 저장한다 —
-        // 관리 화면(v-html)과 메일 본문에 그대로 들어가기 때문이다.
-        var message = InquiryHtmlSanitizer.Sanitize(request.Message);
+        // 관리 화면과 메일 본문에 그대로 들어가기 때문이다.
+        var message = InquiryHtmlSanitizer.Sanitize(raw);
         if (!message.Contains('<'))
         {
             // 평문으로 온 경우(API 직접 호출 등) 줄바꿈이 HTML 에서 뭉개지지 않게 한다.
@@ -195,16 +225,16 @@ public class SiteService : ISiteService
         var row = new SiteInquiry
         {
             Id = Guid.NewGuid(),
-            Name = request.Name.Trim(),
-            Company = request.Company?.Trim(),
-            Email = request.Email.Trim(),
-            Phone = request.Phone?.Trim(),
-            Category = request.Category?.Trim(),
-            Subject = string.IsNullOrWhiteSpace(request.Subject) ? "(제목 없음)" : request.Subject.Trim(),
+            Name = name,
+            Company = company,
+            Email = email,
+            Phone = phone,
+            Category = category,
+            Subject = subject.Length == 0 ? "(제목 없음)" : subject,
             Message = message,
             Locale = NormalizeLocale(request.Locale),
             ConsentedAt = DateTime.UtcNow,
-            ClientIp = clientIp,
+            ClientIp = clientIp is null ? null : clientIp[..Math.Min(clientIp.Length, 45)],
             // 길이를 잘라 둔다. User-Agent 는 길이 제한이 없어서 그대로 넣으면 표가 지저분해진다.
             UserAgent = userAgent is null ? null : userAgent[..Math.Min(userAgent.Length, 400)],
             Status = "new",
@@ -215,10 +245,31 @@ public class SiteService : ISiteService
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("문의가 접수됐습니다. id={Id} 분류={Category}", row.Id, row.Category);
-        // 담당자 메일 알림은 엔드포인트가 IInquiryMailNotifier 로 보낸다 —
-        // 저장(이 메서드)과 알림(부수 효과)을 한 곳에 섞지 않는다.
-        return row.Id;
+        // 담당자 알림은 엔드포인트가 이 저장된 값(거른 본문)으로 보낸다 — 요청 원문을 메일에 넣지 않는다.
+        return new InquiryIntake(row, null);
     }
+
+    /// <summary>
+    /// 칸마다 페이지 주소만 채워 보내는 폼 탐색 봇(이름·회사·제목·본문이 전부 <c>:https://jsini.co.kr/ko/contact:</c>).
+    /// 허니팟 칸은 비워 두어 그것으로는 안 걸린다. 사람은 이름에 주소를 적지 않고, 주소만 있는 본문은 문의가 아니다.
+    /// </summary>
+    public static bool LooksLikeFormSpam(string name, string? company, string subject, string message)
+    {
+        if (name.Contains("://", StringComparison.Ordinal)) return true;
+
+        var plain = InquiryHtmlSanitizer.ToPlainText(message);
+        var withoutUrls = System.Text.RegularExpressions.Regex.Replace(plain, @"\S*://\S*", " ");
+        return !withoutUrls.Any(char.IsLetterOrDigit);
+    }
+
+    private static string OneLine(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        var cleaned = new string(value.Select(c => char.IsControl(c) ? ' ' : c).ToArray());
+        return cleaned.Trim();
+    }
+
+    private static string? Optional(string value) => value.Length == 0 ? null : value;
 
     public async Task RecordVisitAsync(string path, string locale)
     {
@@ -261,4 +312,11 @@ public class SiteService : ISiteService
             // 집계라서 한 건 놓쳐도 문제가 없다. 다시 시도하지 않는다.
         }
     }
+}
+
+/// <summary>문의 접수 결과. 둘 다 비면 봇으로 보고 조용히 버린 것이다.</summary>
+public sealed record InquiryIntake(SiteInquiry? Saved, string? Rejection)
+{
+    public static readonly InquiryIntake Dropped = new(null, null);
+    public static InquiryIntake Reject(string reason) => new(null, reason);
 }

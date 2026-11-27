@@ -68,8 +68,8 @@ public static class SiteEndpoints
         })
         .WithName("DownloadSiteFile");
 
-        // 문의 접수. 익명 쓰기라 방어가 세 겹이다 — 게이트웨이 IP 레이트리밋 · 허니팟 · 동의 확인. 화면은 D-S7(동의 문구)이 확정될 때까지 폼을 열지 않는다.
-        // 실패 사유는 알려 주지 않고, 허니팟은 성공과 같은 응답을 준다.
+        // 문의 접수. 익명 쓰기라 방어가 여러 겹이다 — 게이트웨이 IP 레이트리밋 · 본문 크기 상한 · 허니팟 · 폼 스팸 판별 · 동의 확인.
+        // 봇으로 본 것은 사유를 알려 주지 않고 성공과 같은 응답을 준다. 길이·메일 형식처럼 사람이 고칠 잘못만 400 으로 말한다.
         pub.MapPost("/inquiries", async (
             [FromBody] InquiryRequestDto request,
             HttpContext http,
@@ -83,26 +83,54 @@ public static class SiteEndpoints
                     ApiResponse<bool>.Fail("개인정보 수집·이용에 동의해야 접수됩니다.", "400"));
             }
 
-            // 맨 뒤 값이 프록시가 덧붙인 실제 주소다. 앞쪽은 보낸 쪽이 지어낼 수 있다.
-            var ip = http.Request.Headers["X-Forwarded-For"].ToString()
-                         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                         .LastOrDefault()
+            // 게이트웨이가 속도 제한에 쓴 방문자 주소(X-Client-Ip)가 정본이다. X-Forwarded-For 는 YARP 가
+            // 게이트웨이에 붙은 쪽(소개 사이트 컨테이너) 주소로 덮어써서 모든 문의가 같은 주소로 남는다.
+            var ip = FirstValue(http.Request.Headers["X-Client-Ip"])
                      ?? http.Connection.RemoteIpAddress?.ToString();
 
-            var id = await svc.CreateInquiryAsync(
-                request, ip, http.Request.Headers.UserAgent.ToString());
+            // 소개 사이트는 서버가 대신 부르므로 User-Agent 가 그 서버 것이다. 방문자 것을 따로 실어 온다.
+            var visitorUa = http.Request.Headers["X-Visitor-User-Agent"].ToString();
+            var ua = string.IsNullOrWhiteSpace(visitorUa) ? http.Request.Headers.UserAgent.ToString() : visitorUa;
 
-            // 저장된 문의만 담당자에게 알린다. 메일과 푸시는 서로를 막지 않도록 둘 다 예외를 삼키고, 누가 어느 길로 받는지는 포털관리 알림관리의 SITE_INQUIRY 가 정한다.
-            if (id is not null)
+            var intake = await svc.CreateInquiryAsync(request, ip, ua);
+
+            if (intake.Rejection is not null)
             {
-                await mailNotifier.NotifyAsync(id.Value, request, http.RequestAborted);
-                await pushNotifier.NotifyAsync(id.Value, request, http.RequestAborted);
+                return Results.BadRequest(ApiResponse<bool>.Fail(intake.Rejection, "400"));
             }
 
-            // id 가 null 이면 허니팟이거나 필수값이 빈 것이다. 둘을 구별해 주지 않는다.
+            // 저장된 문의만, 저장된 값(거른 본문)으로 알린다. 메일과 푸시는 서로를 막지 않도록 둘 다 예외를 삼키고,
+            // 누가 어느 길로 받는지는 포털관리 알림관리의 SITE_INQUIRY 가 정한다.
+            if (intake.Saved is { } saved)
+            {
+                var notice = new InquiryRequestDto
+                {
+                    Name = saved.Name,
+                    Company = saved.Company,
+                    Email = saved.Email,
+                    Phone = saved.Phone,
+                    Category = saved.Category,
+                    Subject = saved.Subject,
+                    Message = saved.Message,
+                    Locale = saved.Locale,
+                    Consent = true,
+                };
+                await mailNotifier.NotifyAsync(saved.Id, notice, http.RequestAborted);
+                await pushNotifier.NotifyAsync(saved.Id, notice, http.RequestAborted);
+            }
+
             return Results.Ok(ApiResponse<bool>.Ok(true, "문의가 접수되었습니다."));
         })
+        // 본문 상한(MessageMax 5000자)에 여유를 둔 크기. 기본 30MB 를 그대로 받으면 역직렬화까지 다 한 뒤에야 거절한다.
+        .WithMetadata(new RequestSizeLimitAttribute(64 * 1024))
         .WithName("CreateInquiry");
+
+        static string? FirstValue(Microsoft.Extensions.Primitives.StringValues values)
+        {
+            var v = values.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(v) ? null : v;
+        }
 
         // 조회 집계. 개인을 특정할 값은 쌓지 않고 날짜·경로·언어별 횟수만 올린다. path 는 nullable 로 받아야 빈 값에서 안내 문구가 쓰인다.
         pub.MapPost("/visits", async (

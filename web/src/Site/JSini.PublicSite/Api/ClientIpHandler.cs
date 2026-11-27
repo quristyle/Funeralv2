@@ -8,6 +8,7 @@ public sealed class ClientIpHandler(IHttpContextAccessor accessor) : DelegatingH
 {
     private const int MaxLength = 45;
     private const string HeaderName = "X-Forwarded-For";
+    private const string VisitorUaHeader = "X-Visitor-User-Agent";
 
     /// <inheritdoc />
     protected override Task<HttpResponseMessage> SendAsync(
@@ -16,6 +17,13 @@ public sealed class ClientIpHandler(IHttpContextAccessor accessor) : DelegatingH
         if (!request.Headers.Contains(HeaderName) && Resolve() is { } ip)
         {
             request.Headers.TryAddWithoutValidation(HeaderName, ip);
+        }
+
+        // 문의에 남는 User-Agent 가 이 서버의 것이 되지 않게 방문자 것을 따로 싣는다(스팸 추적용, 길이는 받는 쪽이 자른다).
+        if (accessor.HttpContext?.Request.Headers.UserAgent.ToString() is { Length: > 0 } ua
+            && !request.Headers.Contains(VisitorUaHeader))
+        {
+            request.Headers.TryAddWithoutValidation(VisitorUaHeader, ua);
         }
 
         return base.SendAsync(request, cancellationToken);

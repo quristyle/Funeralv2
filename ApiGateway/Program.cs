@@ -156,6 +156,7 @@ builder.Services.AddReverseProxy()
             requestContext.ProxyRequest.Headers.Remove("X-User-Name");
             requestContext.ProxyRequest.Headers.Remove("X-User-Email");
             requestContext.ProxyRequest.Headers.Remove("X-User-Msa-Source");
+            requestContext.ProxyRequest.Headers.Remove("X-Client-Ip");
 
             if (external)
             {
@@ -163,6 +164,10 @@ builder.Services.AddReverseProxy()
                 requestContext.ProxyRequest.Headers.Remove("Cookie");
                 return;
             }
+
+            // YARP 는 X-Forwarded-For 를 게이트웨이가 본 접속 주소(소개 사이트 컨테이너·nginx)로 덮어쓴다.
+            // 속도 제한이 쓰는 것과 같은 방문자 주소를 따로 실어, 뒷단이 기록하는 IP 가 컨테이너 주소가 되지 않게 한다.
+            requestContext.ProxyRequest.Headers.TryAddWithoutValidation("X-Client-Ip", ClientIp(requestContext.HttpContext));
 
             var user = requestContext.HttpContext.User;
             if (user.Identity?.IsAuthenticated == true)

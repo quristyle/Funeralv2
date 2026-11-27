@@ -8,8 +8,9 @@ namespace SiteServer.Entities;
 /// <remarks>
 /// 익명 쓰기라 두 가지를 함께 둔다.
 ///
-/// 1. <b>스팸 방어</b>는 세 겹이다 — 허니팟 필드(사람은 못 보는 칸이 채워져 있으면 봇),
-///    게이트웨이의 IP 레이트리밋(<c>public-write</c>), 그리고 <see cref="ClientIp"/> 기록.
+/// 1. <b>스팸 방어</b>는 허니팟 필드(사람은 못 보는 칸이 채워져 있으면 봇), 폼 스팸 판별
+///    (<c>SiteService.LooksLikeFormSpam</c>), 게이트웨이의 IP 레이트리밋(<c>public-write</c>),
+///    그리고 <see cref="ClientIp"/> 기록(게이트웨이가 넘기는 <c>X-Client-Ip</c>)이다.
 ///    캡차는 외부 스크립트를 불러야 해서 지금은 두지 않는다 (결정 D-S4).
 ///
 /// 2. <b>개인정보</b>다. 이름 · 연락처 · 이메일이 들어온다.
