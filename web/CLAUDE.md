@@ -818,7 +818,7 @@ Classic 은 한 장이 2.8MB 다. 다 적으면 첫 방문에 십몇 MB 를 받�
   부품만 옛 색으로 남는다. `priorityOf` 가 지킨다.
 
 Bootstrap · Bootswatch 파일은 `wwwroot/bootstrap/` 에 커밋해 두었다
-(MIT, 1.2MB). **런타임에 CDN 을 부르지 않는다.**
+(MIT, 1.2MB).
 
 #### 화면에 Bootstrap 유틸리티 클래스를 쓰지 않는다 (실제로 밟음)
 

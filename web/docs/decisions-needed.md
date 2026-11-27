@@ -759,8 +759,8 @@ AI 단추가 있어 본문 오른쪽에 대화창이 열렸다.
 
 - Bootstrap 5.3.3 과 Bootswatch 넷(Cerulean · Flatly · Journal · Lumen)을
   [`wwwroot/bootstrap/`](../src/Shared/JSini.Web.Components/wwwroot/bootstrap/)
-  에 커밋했다. 합쳐 1.2MB, MIT. **CDN 을 부르지 않는다** — 그 이유는 그 폴더의
-  [README](../src/Shared/JSini.Web.Components/wwwroot/bootstrap/README.md) 에 적었다.
+  에 커밋했다. 합쳐 1.2MB, MIT. 그 폴더의
+  [README](../src/Shared/JSini.Web.Components/wwwroot/bootstrap/README.md) 참고.
 - Default 와 Default Dark 는 **같은 파일**이다. Bootstrap 5.3 부터 어두운 쪽이
   별도 파일이 아니라 `<html data-bs-theme="dark">` 로 켜진다.
 - 고르면 스타일시트가 두 장 실린다 — Bootstrap 본체와, 그 색을 DevExpress

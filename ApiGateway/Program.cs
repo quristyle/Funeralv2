@@ -247,7 +247,7 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // 로그인 없이 쓰는 경로(소개 사이트 문의)는 분당 3회로 조인다. 캡차·허니팟과 함께 쓰며, 캡차는 SiteServer 가 그려 외부 스크립트를 부르지 않는다(D-S4).
+    // 로그인 없이 쓰는 경로(소개 사이트 문의)는 분당 3회로 조인다. 캡차·허니팟과 함께 쓴다.
     options.AddPolicy("public-write", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: ClientIp(httpContext),

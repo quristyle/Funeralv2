@@ -7,7 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace SiteServer.Services;
 
 /// <summary>
-/// 문의 폼의 자체 캡차. 외부 스크립트를 부르지 않는다(D-S4) — 그림은 여기서 PNG 로 만들고
+/// 문의 폼의 자체 캡차. 그림은 여기서 PNG 로 만들고
 /// 정답은 어디에도 저장하지 않는다. 토큰에 <c>HMAC(열쇠, 발급정보+정답)</c> 만 실어,
 /// 맞는 답을 가진 사람만 같은 서명을 다시 만들 수 있다. 한 토큰은 맞든 틀리든 한 번만 검사한다.
 /// </summary>
